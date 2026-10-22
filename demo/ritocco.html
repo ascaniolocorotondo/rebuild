@@ -1,0 +1,1279 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ritocco</title>
+<style>
+  :root {
+    --bg: #f3f3f1; --panel: #ffffff; --stage: #e4e4e1; --text: #1d1d1f; --muted: #6b6b70;
+    --border: #dcdcd8; --accent: #3b6fe0; --accent-text: #ffffff; --hover: #ececea; --active: #dfe7fb;
+    --danger: #d64545; --radius: 6px;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 13px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1b1b1e; --panel: #232327; --stage: #141416; --text: #e9e9ec; --muted: #9a9aa2;
+      --border: #34343a; --accent: #6b94f0; --accent-text: #0e0e10; --hover: #2d2d33; --active: #2b3550;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1b1b1e; --panel: #232327; --stage: #141416; --text: #e9e9ec; --muted: #9a9aa2;
+    --border: #34343a; --accent: #6b94f0; --accent-text: #0e0e10; --hover: #2d2d33; --active: #2b3550;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body { background: var(--bg); color: var(--text); display: grid;
+         grid-template-rows: auto auto 1fr auto; grid-template-columns: 44px 1fr 250px; }
+  button, select, input { font: inherit; color: inherit; }
+  button { background: transparent; border: 1px solid transparent; border-radius: var(--radius);
+           padding: 4px 8px; cursor: pointer; }
+  button:hover { background: var(--hover); }
+  button.primary { background: var(--accent); color: var(--accent-text); }
+  button:disabled { opacity: .4; cursor: default; background: transparent; }
+  select, input[type=number], input[type=text] { background: var(--panel); border: 1px solid var(--border);
+           border-radius: var(--radius); padding: 3px 6px; }
+  input[type=number] { width: 70px; }
+  input[type=range] { accent-color: var(--accent); }
+
+  /* Barra dei menu */
+  #menubar { grid-column: 1 / -1; display: flex; align-items: center; gap: 2px; padding: 3px 8px;
+             background: var(--panel); border-bottom: 1px solid var(--border); }
+  #menubar .logo { font-weight: 700; margin-right: 10px; letter-spacing: .2px; }
+  #menubar .spacer { flex: 1; }
+  .menu { position: relative; }
+  .dropdown { display: none; position: absolute; top: 100%; left: 0; min-width: 240px; z-index: 20;
+              background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+              box-shadow: 0 8px 24px rgba(0,0,0,.18); padding: 4px; }
+  .menu.open .dropdown { display: block; }
+  .menu.open > button { background: var(--hover); }
+  .dropdown button { display: flex; width: 100%; justify-content: space-between; text-align: left; gap: 16px; }
+  .dropdown hr { border: 0; border-top: 1px solid var(--border); margin: 4px 2px; }
+  .kbd { color: var(--muted); font-size: 12px; }
+
+  /* Barra opzioni */
+  #options { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; padding: 5px 10px; min-height: 38px;
+             background: var(--panel); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  #options label { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  #options .hint { color: var(--muted); }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .seg button { border-radius: 0; }
+  .seg button.on { background: var(--active); }
+
+  /* Strumenti */
+  #tools { background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column;
+           align-items: center; gap: 2px; padding: 6px 0; overflow-y: auto; }
+  #tools button { width: 34px; height: 34px; padding: 0; display: grid; place-items: center; }
+  #tools button.on { background: var(--active); color: var(--accent); }
+  #tools svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6;
+               stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Area di lavoro */
+  #stage { position: relative; background: var(--stage); overflow: hidden; touch-action: none; }
+  #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #stage.cur-cross #view { cursor: crosshair; }
+  #stage.cur-none #view { cursor: none; }
+  #stage.cur-move #view { cursor: move; }
+  #stage.cur-grab #view { cursor: grab; }
+  #stage.cur-text #view { cursor: text; }
+  #welcome { position: absolute; inset: 0; display: grid; place-items: center; }
+  #welcome .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 28px 32px;
+                   text-align: center; max-width: 380px; }
+  #welcome h1 { margin: 0 0 6px; font-size: 22px; }
+  #welcome p { color: var(--muted); margin: 0 0 18px; }
+  #welcome .row { display: flex; gap: 8px; justify-content: center; }
+  #textEditor { position: absolute; background: transparent; border: 1px dashed var(--accent); outline: none;
+                resize: none; overflow: hidden; padding: 0; margin: 0; line-height: 1.2; white-space: pre; min-width: 20px; }
+
+  /* Pannello destro */
+  #panel { background: var(--panel); border-left: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
+  #panel section { border-bottom: 1px solid var(--border); padding: 10px; }
+  #panel h3 { margin: 0 0 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+  .colors { display: flex; align-items: center; gap: 10px; }
+  .swatch { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; color: var(--muted); }
+  .swatch input { width: 40px; height: 32px; border: 1px solid var(--border); border-radius: var(--radius); padding: 0; background: none; cursor: pointer; }
+  #layersSection { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .layerProps { display: grid; grid-template-columns: auto 1fr; gap: 6px 8px; align-items: center; margin-bottom: 8px; }
+  .layerProps label { color: var(--muted); }
+  #layerList { flex: 1; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius); min-height: 80px; }
+  .layer { display: flex; align-items: center; gap: 6px; padding: 4px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .layer:last-child { border-bottom: 0; }
+  .layer.on { background: var(--active); }
+  .layer .eye { width: 26px; height: 26px; padding: 0; font-size: 14px; }
+  .layer .eye.off { opacity: .35; }
+  .layer canvas { width: 44px; height: 32px; object-fit: contain; border: 1px solid var(--border); border-radius: 3px;
+                  background: repeating-conic-gradient(#ccc 0 25%, #fff 0 50%) 0 0 / 8px 8px; }
+  .layer .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .layerBtns { display: flex; gap: 2px; margin-top: 6px; flex-wrap: wrap; }
+
+  footer { grid-column: 1 / -1; display: flex; gap: 18px; padding: 3px 10px; font-size: 12px; color: var(--muted);
+           background: var(--panel); border-top: 1px solid var(--border); }
+
+  dialog { border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--text); padding: 0; min-width: 320px; }
+  dialog::backdrop { background: rgba(0,0,0,.35); }
+  dialog form { padding: 16px 18px; }
+  dialog h2 { margin: 0 0 12px; font-size: 16px; }
+  dialog .body { display: grid; grid-template-columns: auto 1fr auto; gap: 8px 10px; align-items: center; }
+  dialog .body label { color: var(--muted); }
+  dialog .body .full { grid-column: 1 / -1; }
+  dialog .actions { display: flex; flex-direction: row-reverse; gap: 8px; margin-top: 16px; }
+  dialog output { min-width: 36px; text-align: right; color: var(--muted); }
+
+  #toast { position: fixed; bottom: 34px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg);
+           padding: 8px 14px; border-radius: var(--radius); opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 30; }
+  #toast.show { opacity: 1; }
+  #dropzone { position: fixed; inset: 0; display: none; place-items: center; font-size: 20px; z-index: 40;
+              background: color-mix(in srgb, var(--accent) 18%, transparent); border: 3px dashed var(--accent); }
+  body.dragging #dropzone { display: grid; }
+
+  @media (max-width: 760px) {
+    body { grid-template-columns: 44px 1fr; grid-template-rows: auto auto 1fr auto auto; }
+    #panel { grid-column: 1 / -1; max-height: 34vh; border-left: 0; border-top: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<nav id="menubar">
+  <span class="logo">Ritocco</span>
+  <div class="menu"><button>File</button><div class="dropdown">
+    <button data-cmd="newDoc">Nuovo…</button>
+    <button data-cmd="open">Apri immagine o progetto… <span class="kbd">Ctrl+O</span></button>
+    <button data-cmd="importLayer">Importa come livello…</button>
+    <hr>
+    <button data-cmd="saveProject">Salva progetto (con livelli) <span class="kbd">Ctrl+S</span></button>
+    <button data-cmd="exportImage">Esporta immagine… <span class="kbd">Ctrl+Shift+S</span></button>
+  </div></div>
+  <div class="menu"><button>Modifica</button><div class="dropdown">
+    <button data-cmd="undo">Annulla <span class="kbd">Ctrl+Z</span></button>
+    <button data-cmd="redo">Ripeti <span class="kbd">Ctrl+Y</span></button>
+    <hr>
+    <button data-cmd="cut">Taglia <span class="kbd">Ctrl+X</span></button>
+    <button data-cmd="copy">Copia <span class="kbd">Ctrl+C</span></button>
+    <button data-cmd="pasteInternal">Incolla come livello <span class="kbd">Ctrl+V</span></button>
+    <button data-cmd="deleteSel">Cancella selezione <span class="kbd">Canc</span></button>
+    <hr>
+    <button data-cmd="fillFg">Riempi con primo piano <span class="kbd">Alt+Backspace</span></button>
+    <button data-cmd="fillBg">Riempi con sfondo <span class="kbd">Ctrl+Backspace</span></button>
+  </div></div>
+  <div class="menu"><button>Immagine</button><div class="dropdown">
+    <button data-cmd="resizeImage">Dimensione immagine…</button>
+    <button data-cmd="cropToSel">Ritaglia alla selezione</button>
+    <hr>
+    <button data-cmd="rotateCW">Ruota 90° in senso orario</button>
+    <button data-cmd="rotateCCW">Ruota 90° in senso antiorario</button>
+    <button data-cmd="flipH">Rifletti orizzontalmente</button>
+    <button data-cmd="flipV">Rifletti verticalmente</button>
+  </div></div>
+  <div class="menu"><button>Regolazioni</button><div class="dropdown">
+    <button data-cmd="adjustColors">Luminosità, contrasto e colore…</button>
+    <button data-cmd="blur">Sfocatura…</button>
+    <hr>
+    <button data-cmd="grayscale">Bianco e nero</button>
+    <button data-cmd="sepia">Seppia</button>
+    <button data-cmd="invertColors">Inverti colori <span class="kbd">Ctrl+I</span></button>
+  </div></div>
+  <div class="menu"><button>Livello</button><div class="dropdown">
+    <button data-cmd="addLayer">Nuovo livello <span class="kbd">Ctrl+Shift+N</span></button>
+    <button data-cmd="duplicateLayer">Duplica livello <span class="kbd">Ctrl+J</span></button>
+    <button data-cmd="deleteLayer">Elimina livello</button>
+    <hr>
+    <button data-cmd="mergeDown">Unisci sotto <span class="kbd">Ctrl+E</span></button>
+    <button data-cmd="flatten">Unisci tutti i livelli</button>
+  </div></div>
+  <div class="menu"><button>Selezione</button><div class="dropdown">
+    <button data-cmd="selectAll">Tutto <span class="kbd">Ctrl+A</span></button>
+    <button data-cmd="deselect">Deseleziona <span class="kbd">Ctrl+D</span></button>
+    <button data-cmd="invertSel">Inverti selezione <span class="kbd">Ctrl+Shift+I</span></button>
+  </div></div>
+  <div class="menu"><button>Vista</button><div class="dropdown">
+    <button data-cmd="zoomIn">Ingrandisci <span class="kbd">Ctrl++</span></button>
+    <button data-cmd="zoomOut">Riduci <span class="kbd">Ctrl+−</span></button>
+    <button data-cmd="fit">Adatta allo schermo <span class="kbd">Ctrl+0</span></button>
+    <button data-cmd="actual">Dimensioni reali (100%) <span class="kbd">Ctrl+1</span></button>
+    <hr>
+    <button data-cmd="toggleTheme">Tema chiaro/scuro</button>
+  </div></div>
+  <span class="spacer"></span>
+  <button data-cmd="undo" id="btnUndo" title="Annulla (Ctrl+Z)">↶</button>
+  <button data-cmd="redo" id="btnRedo" title="Ripeti (Ctrl+Y)">↷</button>
+</nav>
+
+<div id="options"></div>
+
+<div id="tools">
+  <button data-tool="move" title="Sposta (V)"><svg viewBox="0 0 20 20"><path d="M10 2v16M2 10h16M10 2 7.5 4.5M10 2l2.5 2.5M10 18l-2.5-2.5M10 18l2.5-2.5M2 10l2.5-2.5M2 10l2.5 2.5M18 10l-2.5-2.5M18 10l-2.5 2.5"/></svg></button>
+  <button data-tool="select" title="Selezione rettangolare / ellittica (M)"><svg viewBox="0 0 20 20"><rect x="3" y="4" width="14" height="12" stroke-dasharray="2.2 2.2"/></svg></button>
+  <button data-tool="lasso" title="Lazo (L)"><svg viewBox="0 0 20 20"><path d="M6 14C2.5 11.5 3.5 4 10.5 4S18 9 15.5 11.5 9 13.5 7 13"/><path d="M7 13c.5 2-1 4-3 4.5"/></svg></button>
+  <button data-tool="crop" title="Ritaglia (C)"><svg viewBox="0 0 20 20"><path d="M5 1v14h14M1 5h14v14"/></svg></button>
+  <button data-tool="brush" title="Pennello (B)"><svg viewBox="0 0 20 20"><path d="M17.5 2.5 9 11l-1.8-1.8L15.7.7z" transform="translate(-.5 .8)"/><path d="M6.5 11.5c-2 0-3 1.6-3 3.4 0 1-.7 1.8-1.5 2.1 3.5.8 7-.6 7-3.4"/></svg></button>
+  <button data-tool="eraser" title="Gomma (E)"><svg viewBox="0 0 20 20"><path d="M3 13.5 11 5.5l5.5 5.5-6 6H7z"/><path d="M7 9.5l5.5 5.5M7 17h10"/></svg></button>
+  <button data-tool="fill" title="Secchiello (G)"><svg viewBox="0 0 20 20"><path d="M3.5 9.5 9.5 3.5l7 7-6 6z"/><path d="M3.5 9.5h13"/><path d="M17.5 13.5s1.3 1.7 1.3 2.6a1.3 1.3 0 0 1-2.6 0c0-.9 1.3-2.6 1.3-2.6z"/></svg></button>
+  <button data-tool="picker" title="Contagocce (I)"><svg viewBox="0 0 20 20"><path d="M12.5 3.5l4 4M14.5 2l3.5 3.5-2.5 2.5L12 4.5z"/><path d="M12.5 6 4 14.5V16.5h2L14.5 8"/></svg></button>
+  <button data-tool="text" title="Testo (T)"><svg viewBox="0 0 20 20"><path d="M4 4.5h12M10 4.5v12M7.5 16.5h5"/></svg></button>
+  <button data-tool="hand" title="Mano (H) — oppure tieni premuto Spazio"><svg viewBox="0 0 20 20"><path d="M7 10V4.5a1.3 1.3 0 0 1 2.6 0V9V3.2a1.3 1.3 0 0 1 2.6 0V9V4.5a1.3 1.3 0 0 1 2.6 0V12c0 3.5-2.4 6-5.6 6-2.6 0-4-1.4-5.4-3.8L2.6 11.6a1.2 1.2 0 0 1 2-1.3L7 12.5"/></svg></button>
+</div>
+
+<div id="stage">
+  <canvas id="view"></canvas>
+  <div id="welcome">
+    <div class="card">
+      <h1>Ritocco</h1>
+      <p>Apri una foto o crea un documento vuoto.<br>Puoi anche trascinare un'immagine qui o incollarla con Ctrl+V.</p>
+      <div class="row">
+        <button class="primary" data-cmd="open">Apri immagine</button>
+        <button data-cmd="newDoc">Nuovo documento</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<aside id="panel">
+  <section>
+    <h3>Colori</h3>
+    <div class="colors">
+      <div class="swatch"><input type="color" id="fgColor" value="#000000" title="Colore di primo piano">Primo piano</div>
+      <div class="swatch"><input type="color" id="bgColor" value="#ffffff" title="Colore di sfondo">Sfondo</div>
+      <button data-cmd="swapColors" title="Scambia colori (X)">⇄</button>
+      <button data-cmd="defaultColors" title="Colori predefiniti (D)">◩</button>
+    </div>
+  </section>
+  <section id="layersSection">
+    <h3>Livelli</h3>
+    <div class="layerProps">
+      <label for="blendSel">Fusione</label>
+      <select id="blendSel"></select>
+      <label for="opacityRange">Opacità</label>
+      <input type="range" id="opacityRange" min="0" max="100">
+    </div>
+    <div id="layerList"></div>
+    <div class="layerBtns">
+      <button data-cmd="addLayer" title="Nuovo livello">＋ Nuovo</button>
+      <button data-cmd="duplicateLayer" title="Duplica livello">⧉</button>
+      <button data-cmd="layerUp" title="Sposta su">▲</button>
+      <button data-cmd="layerDown" title="Sposta giù">▼</button>
+      <button data-cmd="mergeDown" title="Unisci sotto">⤓</button>
+      <button data-cmd="deleteLayer" title="Elimina livello">🗑</button>
+    </div>
+  </section>
+</aside>
+
+<footer>
+  <span id="stDoc">Nessun documento</span>
+  <span id="stZoom"></span>
+  <span id="stPos"></span>
+  <span id="stSaved"></span>
+</footer>
+
+<dialog id="dlg"><form method="dialog">
+  <h2></h2>
+  <div class="body"></div>
+  <div class="actions"><button value="ok" class="primary">OK</button><button value="cancel" formnovalidate>Annulla</button></div>
+</form></dialog>
+<div id="toast"></div>
+<div id="dropzone">Rilascia qui le immagini</div>
+<input type="file" id="fileInput" hidden accept="image/*,.json">
+<input type="file" id="layerInput" hidden accept="image/*" multiple>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const stage = $('#stage'), view = $('#view'), vctx = view.getContext('2d');
+
+// Buffer di lavoro alla dimensione del documento
+const comp = document.createElement('canvas'), cctx = comp.getContext('2d');           // immagine composita
+const work = document.createElement('canvas'), wctx = work.getContext('2d');           // livello attivo con anteprime
+const strokeC = document.createElement('canvas'), sctx = strokeC.getContext('2d');     // pennellata in corso
+
+const doc = { w: 0, h: 0, layers: [], active: 0, name: 'Senza titolo' };
+const cam = { zoom: 1, x: 0, y: 0 };
+const opts = { size: 20, opacity: 100, tolerance: 32, fontSize: 48, font: 'system-ui, sans-serif', selShape: 'rect' };
+let tool = 'brush', fg = '#000000', bg = '#ffffff';
+let sel = null;            // { path: Path2D, inverted, bounds }
+let pointer = null;        // operazione di trascinamento in corso
+let mouse = { x: 0, y: 0, inside: false };
+let spaceDown = false, previewFilter = null, cropRect = null, clipboard = null, textEdit = null;
+let lastPaint = null, antsOffset = 0, layerSeq = 1;
+let compDirty = true, renderQueued = false;
+const undoStack = [], redoStack = [];
+
+const BLENDS = [['source-over','Normale'],['darken','Scurisci'],['multiply','Moltiplica'],['color-burn','Brucia colore'],
+  ['lighten','Schiarisci'],['screen','Scolora'],['color-dodge','Scherma colore'],['overlay','Sovrapponi'],
+  ['soft-light','Luce soffusa'],['hard-light','Luce intensa'],['difference','Differenza'],['exclusion','Esclusione'],
+  ['hue','Tonalità'],['saturation','Saturazione'],['color','Colore'],['luminosity','Luminosità']];
+
+// ---------- Utilità ----------
+function makeCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function cloneCanvas(src) { const c = makeCanvas(src.width, src.height); c.getContext('2d').drawImage(src, 0, 0); return c; }
+function newLayer(name, canvas) {
+  return { id: layerSeq++, name, canvas: canvas || makeCanvas(doc.w, doc.h), visible: true, opacity: 1, blend: 'source-over' };
+}
+const activeLayer = () => doc.layers[doc.active];
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+function normRect(r) {
+  return { x: Math.min(r.x, r.x + r.w), y: Math.min(r.y, r.y + r.h), w: Math.abs(r.w), h: Math.abs(r.h) };
+}
+let toastTimer;
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+function download(name, blob) {
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: name });
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+function loadImage(src) {
+  return new Promise((res, rej) => {
+    const img = new Image(); img.onload = () => res(img); img.onerror = () => rej(new Error('Immagine non leggibile'));
+    img.src = src instanceof Blob ? URL.createObjectURL(src) : src;
+  });
+}
+function resizeBuffers() {
+  for (const c of [comp, work, strokeC]) { c.width = doc.w; c.height = doc.h; }
+  compDirty = true;
+}
+function requireDoc() { if (!doc.w) { toast('Apri o crea prima un documento'); return false; } return true; }
+function requireVisible() {
+  if (!activeLayer().visible) { toast('Il livello attivo è nascosto'); return false; }
+  return true;
+}
+
+// ---------- Cronologia (annulla/ripeti) ----------
+function snapshot() {
+  return { w: doc.w, h: doc.h, active: doc.active, layers: doc.layers.map(l => ({ ...l, canvas: cloneCanvas(l.canvas) })) };
+}
+function restoreSnap(s) {
+  const sizeChanged = s.w !== doc.w || s.h !== doc.h;
+  doc.w = s.w; doc.h = s.h; doc.active = s.active; doc.layers = s.layers;
+  if (sizeChanged) { sel = null; resizeBuffers(); fit(); }
+}
+function pushHistory() {
+  undoStack.push(snapshot());
+  if (undoStack.length > 30) undoStack.shift();
+  redoStack.length = 0;
+}
+function undo() { if (!undoStack.length) return; redoStack.push(snapshot()); restoreSnap(undoStack.pop()); changed(true); }
+function redo() { if (!redoStack.length) return; undoStack.push(snapshot()); restoreSnap(redoStack.pop()); changed(true); }
+
+function changed(layersToo = true) {
+  compDirty = true; requestRender();
+  if (layersToo) renderLayers();
+  updateUI(); scheduleSave();
+}
+
+// ---------- Selezione ----------
+function selPath() {
+  if (!sel.inverted) return sel.path;
+  const p = new Path2D(); p.rect(0, 0, doc.w, doc.h); p.addPath(sel.path); return p;
+}
+function applyClip(ctx) { if (sel) ctx.clip(selPath(), sel.inverted ? 'evenodd' : 'nonzero'); }
+function shapePath(r, shape) {
+  const p = new Path2D(), n = normRect(r);
+  if (shape === 'ellipse') p.ellipse(n.x + n.w / 2, n.y + n.h / 2, n.w / 2, n.h / 2, 0, 0, Math.PI * 2);
+  else p.rect(n.x, n.y, n.w, n.h);
+  return p;
+}
+function lassoPath(pts) {
+  const p = new Path2D(); p.moveTo(pts[0].x, pts[0].y);
+  for (const q of pts.slice(1)) p.lineTo(q.x, q.y);
+  p.closePath(); return p;
+}
+function selectAll() {
+  if (!requireDoc()) return;
+  const p = new Path2D(); p.rect(0, 0, doc.w, doc.h);
+  sel = { path: p, inverted: false, bounds: { x: 0, y: 0, w: doc.w, h: doc.h } }; requestRender();
+}
+function deselect() { sel = null; requestRender(); }
+function invertSel() { if (sel) { sel.inverted = !sel.inverted; requestRender(); } }
+
+// ---------- Composizione e disegno a schermo ----------
+function composeActive(l) {
+  wctx.save();
+  wctx.clearRect(0, 0, doc.w, doc.h);
+  if (pointer?.type === 'move') wctx.drawImage(l.canvas, pointer.dx, pointer.dy);
+  else wctx.drawImage(l.canvas, 0, 0);
+  if (previewFilter) {
+    wctx.save(); applyClip(wctx); wctx.clearRect(0, 0, doc.w, doc.h);
+    wctx.filter = previewFilter; wctx.drawImage(l.canvas, 0, 0); wctx.restore();
+  }
+  if (pointer?.type === 'paint') {
+    applyClip(wctx);
+    wctx.globalAlpha = opts.opacity / 100;
+    wctx.globalCompositeOperation = pointer.erase ? 'destination-out' : 'source-over';
+    wctx.drawImage(strokeC, 0, 0);
+  }
+  wctx.restore();
+  return work;
+}
+function recomposite() {
+  cctx.clearRect(0, 0, doc.w, doc.h);
+  const live = pointer?.type === 'paint' || pointer?.type === 'move' || previewFilter;
+  doc.layers.forEach((l, i) => {
+    if (!l.visible) return;
+    const src = (i === doc.active && live) ? composeActive(l) : l.canvas;
+    cctx.globalAlpha = l.opacity; cctx.globalCompositeOperation = l.blend;
+    cctx.drawImage(src, 0, 0);
+  });
+  cctx.globalAlpha = 1; cctx.globalCompositeOperation = 'source-over';
+  compDirty = false;
+}
+
+const checker = (() => {
+  const c = makeCanvas(16, 16), x = c.getContext('2d');
+  x.fillStyle = '#ffffff'; x.fillRect(0, 0, 16, 16);
+  x.fillStyle = '#cccccc'; x.fillRect(0, 0, 8, 8); x.fillRect(8, 8, 8, 8);
+  return vctx.createPattern(c, 'repeat');
+})();
+
+function requestRender() {
+  if (renderQueued) return;
+  renderQueued = true; requestAnimationFrame(render);
+}
+function render() {
+  renderQueued = false;
+  const dpr = devicePixelRatio || 1, W = stage.clientWidth, H = stage.clientHeight;
+  if (view.width !== Math.round(W * dpr) || view.height !== Math.round(H * dpr)) {
+    view.width = Math.round(W * dpr); view.height = Math.round(H * dpr);
+  }
+  vctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  vctx.clearRect(0, 0, W, H);
+  $('#welcome').style.display = doc.w ? 'none' : '';
+  if (!doc.w) return;
+  if (compDirty) recomposite();
+
+  const { zoom, x, y } = cam, dw = doc.w * zoom, dh = doc.h * zoom;
+  vctx.fillStyle = checker; vctx.fillRect(x, y, dw, dh);
+  vctx.imageSmoothingEnabled = zoom < 1; vctx.imageSmoothingQuality = 'high';
+  vctx.drawImage(comp, x, y, dw, dh);
+  vctx.strokeStyle = 'rgba(0,0,0,.25)'; vctx.lineWidth = 1; vctx.strokeRect(x - .5, y - .5, dw + 1, dh + 1);
+
+  if (cropRect) {
+    const r = normRect(cropRect);
+    vctx.save();
+    vctx.beginPath(); vctx.rect(x, y, dw, dh);
+    vctx.rect(x + r.x * zoom, y + r.y * zoom, r.w * zoom, r.h * zoom);
+    vctx.fillStyle = 'rgba(0,0,0,.55)'; vctx.fill('evenodd');
+    vctx.strokeStyle = '#fff'; vctx.setLineDash([5, 4]);
+    vctx.strokeRect(x + r.x * zoom + .5, y + r.y * zoom + .5, r.w * zoom, r.h * zoom);
+    vctx.restore();
+  }
+
+  const antsPath = pointer?.type === 'select' ? pointer.path : sel?.path;
+  if (antsPath) {
+    vctx.save(); vctx.translate(x, y); vctx.scale(zoom, zoom);
+    vctx.lineWidth = 1 / zoom; vctx.setLineDash([4 / zoom, 4 / zoom]);
+    const strokeAnts = () => {
+      vctx.stroke(antsPath);
+      if (sel?.inverted && pointer?.type !== 'select') vctx.strokeRect(0, 0, doc.w, doc.h);
+    };
+    vctx.strokeStyle = '#000'; vctx.lineDashOffset = -antsOffset / zoom; strokeAnts();
+    vctx.strokeStyle = '#fff'; vctx.lineDashOffset = (4 - antsOffset) / zoom; strokeAnts();
+    vctx.restore();
+  }
+
+  if (mouse.inside && (tool === 'brush' || tool === 'eraser') && !spaceDown && pointer?.type !== 'pan') {
+    const r = Math.max(1, opts.size * zoom / 2);
+    vctx.beginPath(); vctx.arc(mouse.x, mouse.y, r, 0, Math.PI * 2);
+    vctx.strokeStyle = 'rgba(0,0,0,.8)'; vctx.lineWidth = 1.5; vctx.stroke();
+    vctx.strokeStyle = 'rgba(255,255,255,.9)'; vctx.lineWidth = .75; vctx.stroke();
+  }
+}
+setInterval(() => { if (sel || pointer?.type === 'select') { antsOffset = (antsOffset + 1) % 8; requestRender(); } }, 120);
+new ResizeObserver(requestRender).observe(stage);
+
+// ---------- Vista: zoom e spostamento ----------
+function toDoc(e) {
+  const r = view.getBoundingClientRect();
+  return { x: (e.clientX - r.left - cam.x) / cam.zoom, y: (e.clientY - r.top - cam.y) / cam.zoom };
+}
+function fit() {
+  if (!doc.w) return;
+  const W = stage.clientWidth, H = stage.clientHeight;
+  cam.zoom = Math.min((W - 40) / doc.w, (H - 40) / doc.h, 1);
+  cam.x = (W - doc.w * cam.zoom) / 2; cam.y = (H - doc.h * cam.zoom) / 2;
+  requestRender(); updateUI();
+}
+function zoomAt(z, sx, sy) {
+  if (!doc.w) return;
+  if (sx === undefined) { sx = stage.clientWidth / 2; sy = stage.clientHeight / 2; }
+  const dx = (sx - cam.x) / cam.zoom, dy = (sy - cam.y) / cam.zoom;
+  cam.zoom = clamp(z, 0.02, 32);
+  cam.x = sx - dx * cam.zoom; cam.y = sy - dy * cam.zoom;
+  requestRender(); updateUI();
+}
+const ZOOM_STEPS = [0.02, 0.05, 0.1, 0.167, 0.25, 0.333, 0.5, 0.667, 1, 1.5, 2, 3, 4, 6, 8, 12, 16, 24, 32];
+function zoomStep(dir) {
+  const next = dir > 0 ? ZOOM_STEPS.find(s => s > cam.zoom + 1e-6) : [...ZOOM_STEPS].reverse().find(s => s < cam.zoom - 1e-6);
+  if (next) zoomAt(next);
+}
+view.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = view.getBoundingClientRect();
+  if (e.ctrlKey || e.metaKey || e.altKey) zoomAt(cam.zoom * Math.exp(-e.deltaY * 0.0025), e.clientX - r.left, e.clientY - r.top);
+  else { cam.x -= e.deltaX; cam.y -= e.deltaY; requestRender(); }
+}, { passive: false });
+
+// ---------- Strumenti ----------
+function paintSegment(a, b, ev) {
+  const pressure = ev.pointerType === 'pen' ? (ev.pressure || 0.5) : 1;
+  sctx.lineWidth = Math.max(1, opts.size * pressure);
+  sctx.beginPath(); sctx.moveTo(a.x, a.y); sctx.lineTo(b.x, b.y); sctx.stroke();
+}
+function startPaint(p, e) {
+  if (!requireVisible()) return;
+  sctx.clearRect(0, 0, doc.w, doc.h);
+  sctx.lineCap = 'round'; sctx.lineJoin = 'round'; sctx.strokeStyle = fg;
+  pointer = { type: 'paint', erase: tool === 'eraser', last: p };
+  // Maiusc+clic: linea retta dall'ultimo punto dipinto
+  paintSegment(e.shiftKey && lastPaint ? lastPaint : p, p, e);
+  compDirty = true; requestRender();
+}
+function endPaint() {
+  pushHistory();
+  const ctx = activeLayer().canvas.getContext('2d');
+  ctx.save(); applyClip(ctx);
+  ctx.globalAlpha = opts.opacity / 100;
+  ctx.globalCompositeOperation = pointer.erase ? 'destination-out' : 'source-over';
+  ctx.drawImage(strokeC, 0, 0); ctx.restore();
+  lastPaint = pointer.last;
+}
+
+function floodFill(p) {
+  if (!requireVisible()) return;
+  const x0 = Math.floor(p.x), y0 = Math.floor(p.y), W = doc.w, H = doc.h;
+  if (x0 < 0 || y0 < 0 || x0 >= W || y0 >= H) return;
+  const ctx = activeLayer().canvas.getContext('2d');
+  const src = ctx.getImageData(0, 0, W, H).data;
+  const i0 = (y0 * W + x0) * 4, tr = src[i0], tg = src[i0 + 1], tb = src[i0 + 2], ta = src[i0 + 3];
+  const tol = opts.tolerance;
+  const match = i => Math.abs(src[i] - tr) <= tol && Math.abs(src[i + 1] - tg) <= tol &&
+                     Math.abs(src[i + 2] - tb) <= tol && Math.abs(src[i + 3] - ta) <= tol;
+  const mask = new Uint8Array(W * H), stack = new Int32Array(W * H + 1);
+  let sp = 0; stack[sp++] = y0 * W + x0; mask[y0 * W + x0] = 1;
+  const out = new ImageData(W, H), o = out.data;
+  const [r, g, b] = hexToRgb(fg);
+  while (sp) {
+    const px = stack[--sp], x = px % W, y = (px - x) / W, j = px * 4;
+    o[j] = r; o[j + 1] = g; o[j + 2] = b; o[j + 3] = 255;
+    const nb = [x > 0 ? px - 1 : -1, x < W - 1 ? px + 1 : -1, y > 0 ? px - W : -1, y < H - 1 ? px + W : -1];
+    for (const q of nb) if (q >= 0 && !mask[q] && match(q * 4)) { mask[q] = 1; stack[sp++] = q; }
+  }
+  pushHistory();
+  const tmp = makeCanvas(W, H); tmp.getContext('2d').putImageData(out, 0, 0);
+  ctx.save(); applyClip(ctx); ctx.drawImage(tmp, 0, 0); ctx.restore();
+  changed();
+}
+function hexToRgb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+function rgbToHex(r, g, b) { return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join(''); }
+
+function pickColor(p) {
+  const x = Math.floor(p.x), y = Math.floor(p.y);
+  if (x < 0 || y < 0 || x >= doc.w || y >= doc.h) return;
+  if (compDirty) recomposite();
+  const d = cctx.getImageData(x, y, 1, 1).data;
+  if (d[3] === 0) { toast('Pixel trasparente'); return; }
+  setFg(rgbToHex(d[0], d[1], d[2]));
+}
+
+function startText(p) {
+  const ta = document.createElement('textarea');
+  ta.id = 'textEditor'; ta.rows = 1; ta.spellcheck = false;
+  Object.assign(ta.style, {
+    left: cam.x + p.x * cam.zoom + 'px', top: cam.y + p.y * cam.zoom + 'px',
+    fontSize: opts.fontSize * cam.zoom + 'px', fontFamily: opts.font, color: fg
+  });
+  const autosize = () => { ta.style.height = 'auto'; ta.style.width = 'auto'; ta.style.height = ta.scrollHeight + 'px'; ta.style.width = ta.scrollWidth + 4 + 'px'; };
+  ta.addEventListener('input', autosize);
+  ta.addEventListener('keydown', e => {
+    e.stopPropagation();
+    if (e.key === 'Escape') { e.preventDefault(); finishText(false); }
+    else if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); finishText(true); }
+  });
+  ta.addEventListener('blur', () => finishText(true));
+  stage.appendChild(ta); textEdit = { ta, p };
+  requestAnimationFrame(() => { ta.focus(); autosize(); });
+}
+function finishText(commit) {
+  if (!textEdit) return;
+  const { ta, p } = textEdit; textEdit = null;
+  const str = ta.value; ta.remove();
+  if (!commit || !str.trim()) return;
+  pushHistory();
+  const l = newLayer('Testo: ' + str.trim().slice(0, 18));
+  const ctx = l.canvas.getContext('2d');
+  ctx.font = `${opts.fontSize}px ${opts.font}`; ctx.fillStyle = fg; ctx.textBaseline = 'top';
+  str.split('\n').forEach((line, i) => ctx.fillText(line, p.x, p.y + i * opts.fontSize * 1.2));
+  doc.layers.splice(doc.active + 1, 0, l); doc.active++;
+  changed();
+}
+
+function applyCrop() {
+  if (!cropRect) return;
+  const n = normRect(cropRect);
+  const x = clamp(Math.round(n.x), 0, doc.w), y = clamp(Math.round(n.y), 0, doc.h);
+  const w = clamp(Math.round(n.x + n.w), 0, doc.w) - x, h = clamp(Math.round(n.y + n.h), 0, doc.h) - y;
+  cropRect = null;
+  if (w < 1 || h < 1) { requestRender(); renderOptions(); return; }
+  cropTo(x, y, w, h);
+  renderOptions();
+}
+function cropTo(x, y, w, h) {
+  pushHistory();
+  for (const l of doc.layers) { const c = makeCanvas(w, h); c.getContext('2d').drawImage(l.canvas, -x, -y); l.canvas = c; }
+  doc.w = w; doc.h = h; sel = null; resizeBuffers(); fit(); changed();
+}
+
+// ---------- Eventi del puntatore ----------
+view.addEventListener('pointerdown', e => {
+  if (!doc.w) return;
+  if (textEdit) { finishText(true); return; }
+  view.setPointerCapture(e.pointerId);
+  const p = toDoc(e);
+  if (e.button === 1 || spaceDown || tool === 'hand') {
+    pointer = { type: 'pan', sx: e.clientX, sy: e.clientY, cx: cam.x, cy: cam.y }; updateCursor(); return;
+  }
+  if (e.button !== 0) return;
+  if (e.altKey && (tool === 'brush' || tool === 'fill')) { pickColor(p); return; }
+  switch (tool) {
+    case 'brush': case 'eraser': startPaint(p, e); break;
+    case 'move': if (requireVisible()) pointer = { type: 'move', start: p, dx: 0, dy: 0 }; break;
+    case 'select': pointer = { type: 'select', start: p, path: null }; break;
+    case 'lasso': pointer = { type: 'select', lasso: [p], path: null }; break;
+    case 'crop': pointer = { type: 'crop', start: p }; cropRect = { x: p.x, y: p.y, w: 0, h: 0 }; break;
+    case 'fill': floodFill(p); break;
+    case 'picker': pickColor(p); break;
+    case 'text': startText(p); break;
+  }
+});
+view.addEventListener('pointermove', e => {
+  const r = view.getBoundingClientRect();
+  mouse = { x: e.clientX - r.left, y: e.clientY - r.top, inside: true };
+  if (!doc.w) return;
+  const p = toDoc(e);
+  $('#stPos').textContent = (p.x >= 0 && p.y >= 0 && p.x < doc.w && p.y < doc.h) ? `x ${Math.floor(p.x)}, y ${Math.floor(p.y)}` : '';
+  if (!pointer) { if (tool === 'brush' || tool === 'eraser') requestRender(); return; }
+  switch (pointer.type) {
+    case 'pan':
+      cam.x = pointer.cx + e.clientX - pointer.sx; cam.y = pointer.cy + e.clientY - pointer.sy; requestRender(); break;
+    case 'paint': {
+      const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+      for (const ev of (evs.length ? evs : [e])) { const q = toDoc(ev); paintSegment(pointer.last, q, ev); pointer.last = q; }
+      compDirty = true; requestRender(); break;
+    }
+    case 'move':
+      pointer.dx = Math.round(p.x - pointer.start.x); pointer.dy = Math.round(p.y - pointer.start.y);
+      compDirty = true; requestRender(); break;
+    case 'select':
+      if (pointer.lasso) { pointer.lasso.push(p); pointer.path = lassoPath(pointer.lasso); }
+      else {
+        let w = p.x - pointer.start.x, h = p.y - pointer.start.y;
+        if (e.shiftKey) { const m = Math.max(Math.abs(w), Math.abs(h)); w = Math.sign(w || 1) * m; h = Math.sign(h || 1) * m; }
+        pointer.rect = { x: pointer.start.x, y: pointer.start.y, w, h };
+        pointer.path = shapePath(pointer.rect, opts.selShape);
+      }
+      requestRender(); break;
+    case 'crop':
+      cropRect = { x: pointer.start.x, y: pointer.start.y, w: p.x - pointer.start.x, h: p.y - pointer.start.y };
+      requestRender(); break;
+  }
+});
+function endPointer() {
+  if (!pointer) return;
+  const pt = pointer;
+  switch (pt.type) {
+    case 'paint': endPaint(); pointer = null; changed(); break;
+    case 'move': {
+      pointer = null;
+      if (pt.dx || pt.dy) {
+        pushHistory();
+        const l = activeLayer(), copy = cloneCanvas(l.canvas), ctx = l.canvas.getContext('2d');
+        ctx.clearRect(0, 0, doc.w, doc.h); ctx.drawImage(copy, pt.dx, pt.dy);
+      }
+      changed(); break;
+    }
+    case 'select': {
+      pointer = null;
+      if (pt.lasso) {
+        if (pt.lasso.length < 3) sel = null;
+        else {
+          const xs = pt.lasso.map(q => q.x), ys = pt.lasso.map(q => q.y);
+          const bx = Math.min(...xs), by = Math.min(...ys);
+          sel = { path: pt.path, inverted: false, bounds: { x: bx, y: by, w: Math.max(...xs) - bx, h: Math.max(...ys) - by } };
+        }
+      } else if (!pt.rect || (Math.abs(pt.rect.w) < 2 && Math.abs(pt.rect.h) < 2)) sel = null;
+      else sel = { path: pt.path, inverted: false, bounds: normRect(pt.rect) };
+      requestRender(); break;
+    }
+    case 'crop': {
+      pointer = null;
+      const n = normRect(cropRect);
+      if (n.w < 2 || n.h < 2) cropRect = null;
+      renderOptions(); requestRender(); break;
+    }
+    default: pointer = null;
+  }
+  updateCursor();
+}
+view.addEventListener('pointerup', endPointer);
+view.addEventListener('pointercancel', endPointer);
+view.addEventListener('pointerleave', () => { mouse.inside = false; requestRender(); });
+
+// ---------- Livelli ----------
+function addLayer() {
+  if (!requireDoc()) return;
+  pushHistory();
+  doc.layers.splice(doc.active + 1, 0, newLayer('Livello ' + layerSeq)); doc.active++;
+  changed();
+}
+function duplicateLayer() {
+  if (!requireDoc()) return;
+  pushHistory();
+  const l = activeLayer(), d = { ...newLayer(l.name + ' copia', cloneCanvas(l.canvas)), opacity: l.opacity, blend: l.blend };
+  doc.layers.splice(doc.active + 1, 0, d); doc.active++;
+  changed();
+}
+function deleteLayer() {
+  if (!requireDoc()) return;
+  if (doc.layers.length === 1) { toast('Serve almeno un livello'); return; }
+  pushHistory();
+  doc.layers.splice(doc.active, 1); doc.active = Math.max(0, doc.active - 1);
+  changed();
+}
+function moveLayer(dir) {
+  const i = doc.active, j = i + dir;
+  if (!doc.w || j < 0 || j >= doc.layers.length) return;
+  pushHistory();
+  [doc.layers[i], doc.layers[j]] = [doc.layers[j], doc.layers[i]]; doc.active = j;
+  changed();
+}
+function mergeDown() {
+  if (!requireDoc() || doc.active === 0) return;
+  pushHistory();
+  const up = activeLayer(), down = doc.layers[doc.active - 1], ctx = down.canvas.getContext('2d');
+  if (up.visible) {
+    ctx.globalAlpha = up.opacity; ctx.globalCompositeOperation = up.blend;
+    ctx.drawImage(up.canvas, 0, 0);
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  }
+  doc.layers.splice(doc.active, 1); doc.active--;
+  changed();
+}
+function flatten() {
+  if (!requireDoc()) return;
+  pushHistory(); recomposite();
+  doc.layers = [newLayer('Sfondo', cloneCanvas(comp))]; doc.active = 0;
+  changed();
+}
+
+function renderLayers() {
+  const list = $('#layerList'); list.innerHTML = '';
+  for (let i = doc.layers.length - 1; i >= 0; i--) {
+    const l = doc.layers[i], row = document.createElement('div');
+    row.className = 'layer' + (i === doc.active ? ' on' : '');
+    const eye = document.createElement('button');
+    eye.className = 'eye' + (l.visible ? '' : ' off'); eye.textContent = '👁'; eye.title = l.visible ? 'Nascondi' : 'Mostra';
+    eye.onclick = ev => { ev.stopPropagation(); pushHistory(); l.visible = !l.visible; changed(); };
+    const th = makeCanvas(88, 64), tctx = th.getContext('2d');
+    const s = Math.min(88 / doc.w, 64 / doc.h);
+    tctx.drawImage(l.canvas, (88 - doc.w * s) / 2, (64 - doc.h * s) / 2, doc.w * s, doc.h * s);
+    const name = document.createElement('span'); name.className = 'name'; name.textContent = l.name;
+    row.append(eye, th, name);
+    row.onclick = () => { doc.active = i; renderLayers(); updateUI(); };
+    row.ondblclick = () => {
+      const n = prompt('Nome del livello', l.name);
+      if (n && n.trim()) { l.name = n.trim(); renderLayers(); scheduleSave(); }
+    };
+    list.appendChild(row);
+  }
+}
+const blendSel = $('#blendSel'), opacityRange = $('#opacityRange');
+blendSel.innerHTML = BLENDS.map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
+blendSel.onchange = () => { if (!doc.w) return; pushHistory(); activeLayer().blend = blendSel.value; changed(false); };
+let opacityHist = false;
+opacityRange.oninput = () => {
+  if (!doc.w) return;
+  if (!opacityHist) { pushHistory(); opacityHist = true; }
+  activeLayer().opacity = opacityRange.value / 100; compDirty = true; requestRender();
+};
+opacityRange.onchange = () => { opacityHist = false; changed(false); };
+
+// ---------- Operazioni su immagine e selezione ----------
+function transformAll(fn, swap) {
+  if (!requireDoc()) return;
+  pushHistory();
+  const w = swap ? doc.h : doc.w, h = swap ? doc.w : doc.h;
+  for (const l of doc.layers) { const c = makeCanvas(w, h), ctx = c.getContext('2d'); fn(ctx); ctx.drawImage(l.canvas, 0, 0); l.canvas = c; }
+  const sizeChanged = w !== doc.w;
+  doc.w = w; doc.h = h; sel = null;
+  if (sizeChanged) { resizeBuffers(); fit(); }
+  changed();
+}
+const rotateCW = () => transformAll(ctx => { ctx.translate(doc.h, 0); ctx.rotate(Math.PI / 2); }, true);
+const rotateCCW = () => transformAll(ctx => { ctx.translate(0, doc.w); ctx.rotate(-Math.PI / 2); }, true);
+const flipH = () => transformAll(ctx => { ctx.translate(doc.w, 0); ctx.scale(-1, 1); });
+const flipV = () => transformAll(ctx => { ctx.translate(0, doc.h); ctx.scale(1, -1); });
+
+function applyFilter(f) {
+  if (!requireDoc() || !requireVisible()) return;
+  pushHistory();
+  const l = activeLayer(), copy = cloneCanvas(l.canvas), ctx = l.canvas.getContext('2d');
+  ctx.save(); applyClip(ctx); ctx.clearRect(0, 0, doc.w, doc.h);
+  ctx.filter = f; ctx.drawImage(copy, 0, 0); ctx.restore();
+  changed();
+}
+function deleteSel() {
+  if (!requireDoc()) return;
+  if (!sel) { toast('Nessuna selezione'); return; }
+  pushHistory();
+  const ctx = activeLayer().canvas.getContext('2d');
+  ctx.save(); applyClip(ctx); ctx.clearRect(0, 0, doc.w, doc.h); ctx.restore();
+  changed();
+}
+function fillSel(color) {
+  if (!requireDoc() || !requireVisible()) return;
+  pushHistory();
+  const ctx = activeLayer().canvas.getContext('2d');
+  ctx.save(); applyClip(ctx); ctx.fillStyle = color; ctx.fillRect(0, 0, doc.w, doc.h); ctx.restore();
+  changed();
+}
+function copySel(cut) {
+  if (!requireDoc()) return;
+  const c = makeCanvas(doc.w, doc.h), ctx = c.getContext('2d');
+  ctx.save(); applyClip(ctx); ctx.drawImage(activeLayer().canvas, 0, 0); ctx.restore();
+  clipboard = c;
+  c.toBlob(b => {
+    try { navigator.clipboard?.write?.([new ClipboardItem({ 'image/png': b })]).catch(() => {}); } catch {}
+  });
+  if (cut) deleteSel(); else toast('Copiato');
+}
+function pasteInternal() {
+  if (!clipboard) { toast('Niente da incollare: usa Ctrl+V per le immagini copiate da altri programmi'); return; }
+  addImageLayer(clipboard, 'Incollato');
+}
+function cropToSel() {
+  if (!sel || sel.inverted) { toast('Fai prima una selezione'); return; }
+  const b = sel.bounds;
+  const x = clamp(Math.floor(b.x), 0, doc.w), y = clamp(Math.floor(b.y), 0, doc.h);
+  const w = clamp(Math.ceil(b.x + b.w), 0, doc.w) - x, h = clamp(Math.ceil(b.y + b.h), 0, doc.h) - y;
+  if (w > 0 && h > 0) cropTo(x, y, w, h);
+}
+
+// ---------- Documenti e file ----------
+function newDoc(w, h, fill, name = 'Senza titolo') {
+  if (doc.w) pushHistory();
+  doc.w = w; doc.h = h; doc.name = name; sel = null; cropRect = null;
+  const base = newLayer('Sfondo', makeCanvas(w, h));
+  if (fill) { const ctx = base.canvas.getContext('2d'); ctx.fillStyle = fill; ctx.fillRect(0, 0, w, h); }
+  doc.layers = [base]; doc.active = 0;
+  resizeBuffers(); fit(); changed();
+}
+function newDocFromImage(img, name) {
+  if (doc.w) pushHistory();
+  doc.w = img.naturalWidth || img.width; doc.h = img.naturalHeight || img.height;
+  doc.name = name; sel = null; cropRect = null;
+  const base = newLayer('Sfondo', makeCanvas(doc.w, doc.h));
+  base.canvas.getContext('2d').drawImage(img, 0, 0);
+  doc.layers = [base]; doc.active = 0;
+  resizeBuffers(); fit(); changed();
+}
+function addImageLayer(img, name) {
+  if (!doc.w) { newDocFromImage(img, name); return; }
+  pushHistory();
+  const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+  const l = newLayer(name), ctx = l.canvas.getContext('2d');
+  const s = Math.min(1, doc.w / iw, doc.h / ih);
+  ctx.drawImage(img, Math.round((doc.w - iw * s) / 2), Math.round((doc.h - ih * s) / 2), iw * s, ih * s);
+  doc.layers.splice(doc.active + 1, 0, l); doc.active++;
+  changed();
+}
+const baseName = n => n.replace(/\.(ritocco\.json|json|png|jpe?g|webp|gif|bmp|avif)$/i, '');
+async function openFile(file, asLayer) {
+  try {
+    if (/\.json$/i.test(file.name)) { await loadProject(JSON.parse(await file.text())); return; }
+    const img = await loadImage(file);
+    if (asLayer && doc.w) addImageLayer(img, baseName(file.name));
+    else newDocFromImage(img, baseName(file.name));
+  } catch (err) { toast('Impossibile aprire ' + file.name); console.error(err); }
+}
+
+async function serialize(asBlobs) {
+  const layers = await Promise.all(doc.layers.map(async l => ({
+    name: l.name, visible: l.visible, opacity: l.opacity, blend: l.blend,
+    data: asBlobs ? await new Promise(r => l.canvas.toBlob(r, 'image/png')) : l.canvas.toDataURL('image/png')
+  })));
+  return { app: 'ritocco', version: 1, name: doc.name, w: doc.w, h: doc.h, active: doc.active, layers };
+}
+async function loadProject(data) {
+  if (data?.app !== 'ritocco' || !data.w) throw new Error('Progetto non valido');
+  const layers = [];
+  for (const l of data.layers) {
+    const img = await loadImage(l.data), c = makeCanvas(data.w, data.h);
+    c.getContext('2d').drawImage(img, 0, 0);
+    layers.push({ ...newLayer(l.name, c), visible: l.visible, opacity: l.opacity, blend: l.blend });
+  }
+  if (doc.w) pushHistory();
+  doc.w = data.w; doc.h = data.h; doc.name = data.name || 'Senza titolo';
+  doc.layers = layers; doc.active = clamp(data.active || 0, 0, layers.length - 1);
+  sel = null; cropRect = null; resizeBuffers(); fit(); changed();
+}
+async function saveProject() {
+  if (!requireDoc()) return;
+  const data = await serialize(false);
+  download(doc.name + '.ritocco.json', new Blob([JSON.stringify(data)], { type: 'application/json' }));
+  toast('Progetto salvato (riaprilo con File › Apri)');
+}
+
+// Salvataggio automatico nel browser (IndexedDB)
+function idb() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('ritocco', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+}
+async function idbOp(mode, fn) {
+  const db = await idb();
+  return new Promise((res, rej) => {
+    const tx = db.transaction('kv', mode), req = fn(tx.objectStore('kv'));
+    tx.oncomplete = () => res(req.result); tx.onerror = () => rej(tx.error);
+  });
+}
+let saveTimer;
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    if (!doc.w) return;
+    try {
+      const data = await serialize(true);
+      await idbOp('readwrite', s => s.put(data, 'autosave'));
+      $('#stSaved').textContent = 'Salvato automaticamente alle ' + new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+    } catch (err) { console.warn('Salvataggio automatico non riuscito', err); }
+  }, 1500);
+}
+async function restoreAutosave() {
+  try {
+    const data = await idbOp('readonly', s => s.get('autosave'));
+    if (data) { await loadProject(data); undoStack.length = 0; updateUI(); toast('Lavoro precedente ripristinato'); }
+  } catch (err) { console.warn('Nessun salvataggio ripristinabile', err); }
+}
+
+// ---------- Finestre di dialogo ----------
+const dlg = $('#dlg');
+function openDialog({ title, body, ok = 'OK', onInput, onOk, onCancel }) {
+  dlg.querySelector('h2').textContent = title;
+  dlg.querySelector('.body').innerHTML = body;
+  dlg.querySelector('[value=ok]').textContent = ok;
+  const form = dlg.querySelector('form');
+  form.oninput = e => onInput?.(form, e);
+  dlg.onclose = () => { if (dlg.returnValue === 'ok') onOk?.(form); else onCancel?.(form); };
+  dlg.returnValue = '';
+  dlg.showModal();
+  onInput?.(form, null);
+}
+const field = (form, n) => form.elements.namedItem(n);
+
+function newDocDialog() {
+  openDialog({
+    title: 'Nuovo documento', ok: 'Crea',
+    body: `
+      <label>Formato</label><select name="preset" class="full" style="grid-column:2/-1">
+        <option value="">Personalizzato</option>
+        <option value="1920x1080">Full HD 1920×1080</option>
+        <option value="1080x1080">Post quadrato 1080×1080</option>
+        <option value="1080x1920">Storia verticale 1080×1920</option>
+        <option value="1280x720">Miniatura YouTube 1280×720</option>
+        <option value="2480x3508">A4 a 300 dpi 2480×3508</option>
+        <option value="800x600">800×600</option>
+      </select>
+      <label>Larghezza</label><input type="number" name="w" min="1" max="10000" value="${doc.w || 1920}" required><span>px</span>
+      <label>Altezza</label><input type="number" name="h" min="1" max="10000" value="${doc.h || 1080}" required><span>px</span>
+      <label>Sfondo</label><select name="bg" style="grid-column:2/-1">
+        <option value="white">Bianco</option><option value="transparent">Trasparente</option><option value="color">Colore di sfondo</option>
+      </select>`,
+    onInput: (f, e) => {
+      if (e?.target?.name === 'preset' && f.elements.preset.value) {
+        const [w, h] = f.elements.preset.value.split('x'); field(f, 'w').value = w; field(f, 'h').value = h;
+      }
+    },
+    onOk: f => {
+      const w = clamp(parseInt(field(f, 'w').value) || 1, 1, 10000), h = clamp(parseInt(field(f, 'h').value) || 1, 1, 10000);
+      const b = field(f, 'bg').value;
+      newDoc(w, h, b === 'white' ? '#ffffff' : b === 'color' ? bg : null);
+    }
+  });
+}
+
+function resizeDialog() {
+  if (!requireDoc()) return;
+  const ratio = doc.w / doc.h;
+  openDialog({
+    title: 'Dimensione immagine', ok: 'Ridimensiona',
+    body: `
+      <label>Larghezza</label><input type="number" name="w" min="1" max="10000" value="${doc.w}"><span>px</span>
+      <label>Altezza</label><input type="number" name="h" min="1" max="10000" value="${doc.h}"><span>px</span>
+      <label class="full"><input type="checkbox" name="lock" checked> Mantieni proporzioni</label>`,
+    onInput: (f, e) => {
+      if (!e || !field(f, 'lock').checked) return;
+      if (e.target.name === 'w') field(f, 'h').value = Math.max(1, Math.round(field(f, 'w').value / ratio));
+      if (e.target.name === 'h') field(f, 'w').value = Math.max(1, Math.round(field(f, 'h').value * ratio));
+    },
+    onOk: f => {
+      const w = clamp(parseInt(field(f, 'w').value) || 1, 1, 10000), h = clamp(parseInt(field(f, 'h').value) || 1, 1, 10000);
+      if (w === doc.w && h === doc.h) return;
+      pushHistory();
+      for (const l of doc.layers) {
+        const c = makeCanvas(w, h), ctx = c.getContext('2d');
+        ctx.imageSmoothingQuality = 'high'; ctx.drawImage(l.canvas, 0, 0, w, h); l.canvas = c;
+      }
+      doc.w = w; doc.h = h; sel = null; resizeBuffers(); fit(); changed();
+    }
+  });
+}
+
+function slider(name, label, min, max, value, unit = '') {
+  return `<label>${label}</label><input type="range" name="${name}" min="${min}" max="${max}" value="${value}"><output name="${name}Out">${value}${unit}</output>`;
+}
+function adjustDialog() {
+  if (!requireDoc() || !requireVisible()) return;
+  const build = f => {
+    const v = n => field(f, n).value;
+    for (const [n, u] of [['b', '%'], ['c', '%'], ['s', '%'], ['h', '°']]) field(f, n + 'Out').value = v(n) + u;
+    return `brightness(${v('b')}%) contrast(${v('c')}%) saturate(${v('s')}%) hue-rotate(${v('h')}deg)`;
+  };
+  openDialog({
+    title: 'Luminosità, contrasto e colore', ok: 'Applica',
+    body: slider('b', 'Luminosità', 0, 200, 100, '%') + slider('c', 'Contrasto', 0, 200, 100, '%') +
+          slider('s', 'Saturazione', 0, 300, 100, '%') + slider('h', 'Tonalità', -180, 180, 0, '°'),
+    onInput: f => { previewFilter = build(f); compDirty = true; requestRender(); },
+    onOk: f => { const flt = build(f); previewFilter = null; applyFilter(flt); },
+    onCancel: () => { previewFilter = null; compDirty = true; requestRender(); }
+  });
+}
+function blurDialog() {
+  if (!requireDoc() || !requireVisible()) return;
+  openDialog({
+    title: 'Sfocatura', ok: 'Applica',
+    body: slider('r', 'Raggio', 0, 50, 4, ' px'),
+    onInput: f => { field(f, 'rOut').value = field(f, 'r').value + ' px'; previewFilter = `blur(${field(f, 'r').value}px)`; compDirty = true; requestRender(); },
+    onOk: f => { previewFilter = null; applyFilter(`blur(${field(f, 'r').value}px)`); },
+    onCancel: () => { previewFilter = null; compDirty = true; requestRender(); }
+  });
+}
+function exportDialog() {
+  if (!requireDoc()) return;
+  openDialog({
+    title: 'Esporta immagine', ok: 'Esporta',
+    body: `
+      <label>Nome</label><input type="text" name="name" value="${doc.name.replace(/"/g, '')}" style="grid-column:2/-1">
+      <label>Formato</label><select name="fmt" style="grid-column:2/-1">
+        <option value="image/png">PNG (trasparenza, senza perdita)</option>
+        <option value="image/jpeg">JPG (foto, file piccoli)</option>
+        <option value="image/webp">WebP (moderno, file piccolissimi)</option>
+      </select>
+      ${slider('q', 'Qualità', 10, 100, 90, '%')}`,
+    onInput: f => {
+      field(f, 'qOut').value = field(f, 'q').value + '%';
+      field(f, 'q').disabled = field(f, 'fmt').value === 'image/png';
+    },
+    onOk: f => {
+      const type = field(f, 'fmt').value, q = field(f, 'q').value / 100;
+      const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[type];
+      recomposite();
+      let out = comp;
+      if (type === 'image/jpeg') {
+        out = makeCanvas(doc.w, doc.h); const ctx = out.getContext('2d');
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, doc.w, doc.h); ctx.drawImage(comp, 0, 0);
+      }
+      out.toBlob(b => download((field(f, 'name').value.trim() || 'immagine') + '.' + ext, b), type, q);
+    }
+  });
+}
+
+// ---------- Barra delle opzioni ----------
+function renderOptions() {
+  const o = $('#options');
+  const sizeCtl = `<label>Dimensione <input type="range" data-opt="size" min="1" max="500" value="${opts.size}"><input type="number" data-opt="size" min="1" max="500" value="${opts.size}"> px</label>`;
+  const opCtl = `<label>Opacità <input type="range" data-opt="opacity" min="1" max="100" value="${opts.opacity}"><input type="number" data-opt="opacity" min="1" max="100" value="${opts.opacity}"> %</label>`;
+  const selBtns = `<button data-cmd="selectAll">Tutto</button><button data-cmd="deselect">Deseleziona</button><button data-cmd="invertSel">Inverti</button><button data-cmd="cropToSel">Ritaglia alla selezione</button>`;
+  const html = {
+    move: `<span class="hint">Trascina per spostare il livello attivo.</span>`,
+    select: `<span class="seg"><button data-shape="rect" class="${opts.selShape === 'rect' ? 'on' : ''}">▭ Rettangolo</button><button data-shape="ellipse" class="${opts.selShape === 'ellipse' ? 'on' : ''}">◯ Ellisse</button></span>${selBtns}<span class="hint">Maiusc = quadrato/cerchio</span>`,
+    lasso: `${selBtns}<span class="hint">Disegna a mano libera il contorno da selezionare.</span>`,
+    crop: cropRect && !pointer
+      ? `<button class="primary" data-cmd="applyCrop">Applica ritaglio (Invio)</button><button data-cmd="cancelCrop">Annulla (Esc)</button>`
+      : `<span class="hint">Trascina sull'immagine l'area da tenere.</span>`,
+    brush: sizeCtl + opCtl + `<span class="hint">Maiusc+clic = linea retta · Alt+clic = preleva colore · [ ] = dimensione</span>`,
+    eraser: sizeCtl + opCtl,
+    fill: `<label>Tolleranza <input type="range" data-opt="tolerance" min="0" max="255" value="${opts.tolerance}"><input type="number" data-opt="tolerance" min="0" max="255" value="${opts.tolerance}"></label>`,
+    picker: `<span class="hint">Clicca sull'immagine per prendere il colore.</span>`,
+    text: `<label>Carattere <select data-opt="font">
+        ${[['system-ui, sans-serif', 'Sistema'], ['Arial, sans-serif', 'Arial'], ['Georgia, serif', 'Georgia'], ['"Times New Roman", serif', 'Times New Roman'],
+           ['Impact, sans-serif', 'Impact'], ['"Comic Sans MS", cursive', 'Comic Sans'], ['"Courier New", monospace', 'Courier New'], ['Verdana, sans-serif', 'Verdana']]
+          .map(([v, t]) => `<option value='${v}' ${v === opts.font ? 'selected' : ''}>${t}</option>`).join('')}
+      </select></label>
+      <label>Dimensione <input type="number" data-opt="fontSize" min="4" max="1000" value="${opts.fontSize}"> px</label>
+      <span class="hint">Clicca per scrivere · Invio conferma · Maiusc+Invio a capo</span>`,
+    hand: `<button data-cmd="fit">Adatta</button><button data-cmd="actual">100%</button><span class="hint">Rotellina = scorri · Ctrl+rotellina = zoom</span>`
+  };
+  o.innerHTML = html[tool] || '';
+  o.querySelectorAll('[data-opt]').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const k = inp.dataset.opt;
+      opts[k] = inp.type === 'range' || inp.type === 'number' ? Number(inp.value) : inp.value;
+      o.querySelectorAll(`[data-opt="${k}"]`).forEach(x => { if (x !== inp) x.value = inp.value; });
+      savePrefs(); requestRender();
+    });
+  });
+  o.querySelectorAll('[data-shape]').forEach(b => b.onclick = () => { opts.selShape = b.dataset.shape; savePrefs(); renderOptions(); });
+}
+
+function setTool(t) {
+  if (textEdit) finishText(true);
+  if (t !== 'crop' && cropRect) cropRect = null;
+  tool = t;
+  document.querySelectorAll('#tools [data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === t));
+  renderOptions(); updateCursor(); savePrefs(); requestRender();
+}
+function updateCursor() {
+  stage.className = '';
+  if (spaceDown || tool === 'hand' || pointer?.type === 'pan') stage.classList.add('cur-grab');
+  else if (tool === 'brush' || tool === 'eraser') stage.classList.add('cur-none');
+  else if (tool === 'move') stage.classList.add('cur-move');
+  else if (tool === 'text') stage.classList.add('cur-text');
+  else stage.classList.add('cur-cross');
+}
+function setFg(c) { fg = c; $('#fgColor').value = c; savePrefs(); }
+function setBg(c) { bg = c; $('#bgColor').value = c; savePrefs(); }
+
+function updateUI() {
+  $('#btnUndo').disabled = !undoStack.length;
+  $('#btnRedo').disabled = !redoStack.length;
+  $('#stDoc').textContent = doc.w ? `${doc.name} — ${doc.w} × ${doc.h} px` : 'Nessun documento';
+  $('#stZoom').textContent = doc.w ? Math.round(cam.zoom * 100) + '%' : '';
+  if (doc.w) { blendSel.value = activeLayer().blend; opacityRange.value = Math.round(activeLayer().opacity * 100); }
+}
+
+function savePrefs() {
+  try { localStorage.setItem('ritocco:prefs', JSON.stringify({ tool, opts, fg, bg })); } catch {}
+}
+function loadPrefs() {
+  try {
+    const p = JSON.parse(localStorage.getItem('ritocco:prefs'));
+    if (p) { Object.assign(opts, p.opts); tool = p.tool || tool; fg = p.fg || fg; bg = p.bg || bg; }
+    const t = localStorage.getItem('ritocco:theme'); if (t) document.documentElement.dataset.theme = t;
+  } catch {}
+}
+function toggleTheme() {
+  const root = document.documentElement;
+  const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  root.dataset.theme = dark ? 'light' : 'dark';
+  try { localStorage.setItem('ritocco:theme', root.dataset.theme); } catch {}
+}
+
+// ---------- Comandi ----------
+const commands = {
+  newDoc: newDocDialog,
+  open: () => $('#fileInput').click(),
+  importLayer: () => { if (requireDoc()) $('#layerInput').click(); },
+  saveProject, exportImage: exportDialog,
+  undo, redo,
+  cut: () => copySel(true), copy: () => copySel(false), pasteInternal, deleteSel,
+  fillFg: () => fillSel(fg), fillBg: () => fillSel(bg),
+  resizeImage: resizeDialog, cropToSel, rotateCW, rotateCCW, flipH, flipV,
+  adjustColors: adjustDialog, blur: blurDialog,
+  grayscale: () => applyFilter('grayscale(1)'), sepia: () => applyFilter('sepia(1)'), invertColors: () => applyFilter('invert(1)'),
+  addLayer, duplicateLayer, deleteLayer, mergeDown, flatten,
+  layerUp: () => moveLayer(1), layerDown: () => moveLayer(-1),
+  selectAll, deselect, invertSel,
+  zoomIn: () => zoomStep(1), zoomOut: () => zoomStep(-1), fit, actual: () => zoomAt(1),
+  toggleTheme,
+  swapColors: () => { const f = fg; setFg(bg); setBg(f); },
+  defaultColors: () => { setFg('#000000'); setBg('#ffffff'); },
+  applyCrop, cancelCrop: () => { cropRect = null; renderOptions(); requestRender(); }
+};
+document.addEventListener('click', e => {
+  const menuBtn = e.target.closest('.menu > button');
+  const openMenu = document.querySelector('.menu.open');
+  if (menuBtn) {
+    const m = menuBtn.parentElement, wasOpen = m.classList.contains('open');
+    openMenu?.classList.remove('open');
+    if (!wasOpen) m.classList.add('open');
+    return;
+  }
+  const cmdBtn = e.target.closest('[data-cmd]');
+  openMenu?.classList.remove('open');
+  if (cmdBtn && !cmdBtn.disabled) commands[cmdBtn.dataset.cmd]?.();
+  const toolBtn = e.target.closest('[data-tool]');
+  if (toolBtn) setTool(toolBtn.dataset.tool);
+});
+document.querySelectorAll('.menu > button').forEach(b => b.addEventListener('mouseenter', () => {
+  const open = document.querySelector('.menu.open');
+  if (open && open !== b.parentElement) { open.classList.remove('open'); b.parentElement.classList.add('open'); }
+}));
+
+$('#fgColor').addEventListener('input', e => setFg(e.target.value));
+$('#bgColor').addEventListener('input', e => setBg(e.target.value));
+$('#fileInput').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) openFile(f, false); };
+$('#layerInput').onchange = async e => { const fs = [...e.target.files]; e.target.value = ''; for (const f of fs) await openFile(f, true); };
+
+// Trascina e rilascia
+let dragDepth = 0;
+addEventListener('dragenter', e => { if (e.dataTransfer?.types.includes('Files')) { dragDepth++; document.body.classList.add('dragging'); } });
+addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; document.body.classList.remove('dragging'); } });
+addEventListener('dragover', e => e.preventDefault());
+addEventListener('drop', async e => {
+  e.preventDefault(); dragDepth = 0; document.body.classList.remove('dragging');
+  const files = [...e.dataTransfer.files];
+  for (const [i, f] of files.entries()) await openFile(f, doc.w > 0 || i > 0);
+});
+
+// Incolla immagini da altri programmi
+addEventListener('paste', async e => {
+  if (e.target.closest?.('input, textarea')) return;
+  const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
+  e.preventDefault();
+  if (item) { const img = await loadImage(item.getAsFile()); addImageLayer(img, 'Incollato'); }
+  else pasteInternal();
+});
+
+// Scorciatoie da tastiera
+addEventListener('keydown', e => {
+  if (dlg.open || e.target.closest('input, textarea, select')) return;
+  const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
+  if (k === ' ' && !spaceDown) { spaceDown = true; updateCursor(); e.preventDefault(); return; }
+  if (e.key === 'Escape') { document.querySelector('.menu.open')?.classList.remove('open'); if (cropRect) commands.cancelCrop(); return; }
+  if (mod) {
+    const map = {
+      z: e.shiftKey ? redo : undo, y: redo, s: e.shiftKey ? exportDialog : saveProject, o: commands.open,
+      a: selectAll, d: deselect, i: e.shiftKey ? invertSel : commands.invertColors, j: duplicateLayer, e: mergeDown,
+      n: e.shiftKey ? addLayer : null, c: commands.copy, x: commands.cut,
+      '0': fit, '1': commands.actual, '=': commands.zoomIn, '+': commands.zoomIn, '-': commands.zoomOut,
+      backspace: commands.fillBg
+    };
+    if (map[k]) { e.preventDefault(); map[k](); }
+    return;
+  }
+  if (e.altKey && k === 'backspace') { e.preventDefault(); commands.fillFg(); return; }
+  if (e.key === 'Enter' && cropRect) { applyCrop(); return; }
+  if (k === 'delete' || k === 'backspace') { e.preventDefault(); deleteSel(); return; }
+  const tools = { v: 'move', m: 'select', l: 'lasso', c: 'crop', b: 'brush', e: 'eraser', g: 'fill', i: 'picker', t: 'text', h: 'hand' };
+  if (tools[k]) { setTool(tools[k]); return; }
+  if (k === 'x') commands.swapColors();
+  else if (k === 'd') commands.defaultColors();
+  else if (k === '[' || k === ']') {
+    opts.size = clamp(Math.round(opts.size * (k === ']' ? 1.2 : 1 / 1.2)) + (k === ']' ? 1 : -1), 1, 500);
+    renderOptions(); savePrefs(); requestRender();
+  }
+});
+addEventListener('keyup', e => { if (e.key === ' ') { spaceDown = false; updateCursor(); } });
+addEventListener('beforeunload', () => { clearTimeout(saveTimer); });
+
+// ---------- Avvio ----------
+loadPrefs();
+$('#fgColor').value = fg; $('#bgColor').value = bg;
+setTool(tool);
+updateUI();
+restoreAutosave().then(requestRender);
+</script>
+</body>
+</html>

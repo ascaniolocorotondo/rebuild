@@ -1,0 +1,204 @@
+<!doctype html>
+<!--
+  Modello di partenza per le app della skill "REbuild".
+  Già pronti: barra strumenti, barra laterale, area di lavoro, barra di stato,
+  tema chiaro/scuro, salvataggio automatico, annulla/ripeti, esporta/importa backup,
+  scorciatoie da tastiera, avvisi (toast).
+  Da personalizzare: APP_NAME, lo stato iniziale (createInitialState) e render().
+-->
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nome App</title>
+<style>
+  :root {
+    --bg: #f6f6f4; --panel: #ffffff; --text: #1d1d1f; --muted: #6b6b70;
+    --border: #e2e2e0; --accent: #3b6fe0; --accent-text: #ffffff; --hover: #efefed;
+    --danger: #d64545; --radius: 8px;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161618; --panel: #1f1f22; --text: #ececee; --muted: #9a9aa2;
+      --border: #2e2e33; --accent: #6b94f0; --accent-text: #0e0e10; --hover: #2a2a2f;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #161618; --panel: #1f1f22; --text: #ececee; --muted: #9a9aa2;
+    --border: #2e2e33; --accent: #6b94f0; --accent-text: #0e0e10; --hover: #2a2a2f;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--text); display: grid;
+         grid-template-rows: auto 1fr auto; grid-template-columns: 240px 1fr; }
+  header { grid-column: 1 / -1; display: flex; gap: 4px; align-items: center;
+           padding: 6px 10px; background: var(--panel); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  header .title { font-weight: 600; margin-right: 12px; }
+  header .spacer { flex: 1; }
+  button { font: inherit; color: var(--text); background: transparent; border: 1px solid transparent;
+           border-radius: var(--radius); padding: 6px 10px; cursor: pointer; }
+  button:hover { background: var(--hover); }
+  button.primary { background: var(--accent); color: var(--accent-text); }
+  button:disabled { opacity: .4; cursor: default; }
+  aside { background: var(--panel); border-right: 1px solid var(--border); overflow: auto; padding: 10px; }
+  main { overflow: auto; padding: 16px; position: relative; }
+  footer { grid-column: 1 / -1; font-size: 12px; color: var(--muted); padding: 4px 10px;
+           background: var(--panel); border-top: 1px solid var(--border); display: flex; gap: 16px; }
+  #toast { position: fixed; bottom: 36px; left: 50%; transform: translateX(-50%); background: var(--text);
+           color: var(--bg); padding: 8px 14px; border-radius: var(--radius); opacity: 0; transition: opacity .2s;
+           pointer-events: none; }
+  #toast.show { opacity: 1; }
+  #dropzone { position: fixed; inset: 0; background: color-mix(in srgb, var(--accent) 20%, transparent);
+              border: 3px dashed var(--accent); display: none; place-items: center; font-size: 20px; z-index: 10; }
+  body.dragging #dropzone { display: grid; }
+  @media (max-width: 700px) {
+    body { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr auto; }
+    aside { border-right: 0; border-bottom: 1px solid var(--border); max-height: 30vh; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <span class="title" id="appTitle">Nome App</span>
+  <button id="btnNew" title="Nuovo (Ctrl+N)">Nuovo</button>
+  <button id="btnOpen" title="Apri file (Ctrl+O)">Apri</button>
+  <button id="btnUndo" title="Annulla (Ctrl+Z)">↶</button>
+  <button id="btnRedo" title="Ripeti (Ctrl+Y)">↷</button>
+  <!-- Strumenti specifici dell'app qui -->
+  <span class="spacer"></span>
+  <button id="btnExport" title="Esporta">Esporta</button>
+  <button id="btnBackup" title="Scarica backup dei dati">Backup</button>
+  <button id="btnRestore" title="Ripristina da backup">Ripristina</button>
+  <button id="btnTheme" title="Tema chiaro/scuro">◐</button>
+</header>
+<aside id="sidebar"><!-- Pannelli, elenchi, proprietà --></aside>
+<main id="workspace"><!-- Area di lavoro principale --></main>
+<footer><span id="status">Pronto</span><span id="saved"></span></footer>
+<div id="toast"></div>
+<div id="dropzone">Rilascia qui i file</div>
+<input type="file" id="fileInput" hidden multiple>
+<input type="file" id="backupInput" hidden accept=".json,application/json">
+
+<script>
+const APP_NAME = 'Nome App';
+const STORAGE_KEY = 'app:' + APP_NAME;
+
+// ---------- Stato, salvataggio, annulla/ripeti ----------
+function createInitialState() {
+  return { version: 1, items: [] };
+}
+
+let state = load() ?? createInitialState();
+const undoStack = [], redoStack = [];
+const HISTORY_LIMIT = 100;
+
+function load() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch { return null; }
+}
+
+let saveTimer;
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      setText('saved', 'Salvato ' + new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }));
+    } catch (e) {
+      toast('Spazio pieno: esporta un backup');
+    }
+  }, 400);
+}
+
+// Usa sempre update() per modificare lo stato: così annulla/ripeti e salvataggio funzionano da soli.
+function update(mutator) {
+  undoStack.push(structuredClone(state));
+  if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
+  redoStack.length = 0;
+  mutator(state);
+  commit();
+}
+function undo() { if (!undoStack.length) return; redoStack.push(structuredClone(state)); state = undoStack.pop(); commit(); }
+function redo() { if (!redoStack.length) return; undoStack.push(structuredClone(state)); state = redoStack.pop(); commit(); }
+function commit() { scheduleSave(); render(); }
+
+// ---------- Interfaccia ----------
+function render() {
+  document.getElementById('btnUndo').disabled = !undoStack.length;
+  document.getElementById('btnRedo').disabled = !redoStack.length;
+  // Disegna qui barra laterale e area di lavoro a partire da `state`.
+}
+
+function setText(id, t) { document.getElementById(id).textContent = t; }
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+function download(filename, data, type = 'application/octet-stream') {
+  const blob = data instanceof Blob ? data : new Blob([data], { type });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: filename });
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// ---------- File ----------
+async function openFiles(files) {
+  for (const file of files) {
+    // Gestisci qui i tipi di file supportati (file.type, file.name).
+    toast('Aperto: ' + file.name);
+  }
+}
+
+function exportWork() {
+  // Esporta nel formato standard dell'app (PNG, PDF, CSV, DOCX, WAV...).
+  download(APP_NAME + '.json', JSON.stringify(state, null, 2), 'application/json');
+}
+
+// ---------- Collegamenti ----------
+const $ = id => document.getElementById(id);
+$('appTitle').textContent = APP_NAME; document.title = APP_NAME;
+$('btnNew').onclick = () => { if (confirm('Iniziare da capo? Il lavoro attuale si può recuperare con Annulla.')) update(s => Object.assign(s, createInitialState())); };
+$('btnOpen').onclick = () => $('fileInput').click();
+$('fileInput').onchange = e => { openFiles(e.target.files); e.target.value = ''; };
+$('btnUndo').onclick = undo;
+$('btnRedo').onclick = redo;
+$('btnExport').onclick = exportWork;
+$('btnBackup').onclick = () => download(`${APP_NAME}-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(state), 'application/json');
+$('btnRestore').onclick = () => $('backupInput').click();
+$('backupInput').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try { const data = JSON.parse(await f.text()); update(s => { for (const k of Object.keys(s)) delete s[k]; Object.assign(s, data); }); toast('Backup ripristinato'); }
+  catch { toast('File di backup non valido'); }
+};
+$('btnTheme').onclick = () => {
+  const root = document.documentElement;
+  const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  root.dataset.theme = dark ? 'light' : 'dark';
+  try { localStorage.setItem(STORAGE_KEY + ':theme', root.dataset.theme); } catch {}
+};
+try { const t = localStorage.getItem(STORAGE_KEY + ':theme'); if (t) document.documentElement.dataset.theme = t; } catch {}
+
+// Trascina e rilascia
+let dragDepth = 0;
+addEventListener('dragenter', e => { if (e.dataTransfer?.types.includes('Files')) { dragDepth++; document.body.classList.add('dragging'); } });
+addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; document.body.classList.remove('dragging'); } });
+addEventListener('dragover', e => e.preventDefault());
+addEventListener('drop', e => { e.preventDefault(); dragDepth = 0; document.body.classList.remove('dragging'); if (e.dataTransfer.files.length) openFiles(e.dataTransfer.files); });
+
+// Scorciatoie (le stesse dei programmi più diffusi)
+addEventListener('keydown', e => {
+  const typing = e.target.closest('input, textarea, [contenteditable="true"]');
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey && !typing) { e.preventDefault(); undo(); }
+  else if (mod && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z')) && !typing) { e.preventDefault(); redo(); }
+  else if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); exportWork(); }
+  else if (mod && e.key.toLowerCase() === 'o') { e.preventDefault(); $('fileInput').click(); }
+});
+
+render();
+</script>
+</body>
+</html>

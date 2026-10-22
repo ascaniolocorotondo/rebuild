@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>REbuild</title>
+<meta name="description" content="REbuild è una skill per Claude che costruisce da zero la tua versione gratuita dei programmi a pagamento: fotoritocco, fogli di calcolo, kanban, musica e oltre 40 altri.">
+<meta property="og:title" content="REbuild">
+<meta property="og:description" content="Non pagare l'abbonamento: fatti costruire il programma da Claude.">
+<meta property="og:image" content="img/ritocco.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+  /* Layout: colonna centrale di 1120px; l'eroe affianca il titolo a uno scontrino "abbonamento annullato". */
+  :root {
+    --paper: #edf0f2; --surface: #ffffff; --ink: #15202a; --muted: #56636f; --line: #d3d9de;
+    --accent: #0e6a5b; --accent-ink: #ffffff; --accent-soft: #d5ebe5; --stamp: #c4412a; --receipt: #fbfbf7;
+    --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+    --r: 10px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0f151a; --surface: #161f27; --ink: #e5ebee; --muted: #93a0ab; --line: #27323c;
+      --accent: #43c2a7; --accent-ink: #062019; --accent-soft: #143a33; --stamp: #ff6b4f; --receipt: #1a242c;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0f151a; --surface: #161f27; --ink: #e5ebee; --muted: #93a0ab; --line: #27323c;
+    --accent: #43c2a7; --accent-ink: #062019; --accent-soft: #143a33; --stamp: #ff6b4f; --receipt: #1a242c;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; animation: none !important; } }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 400 17px/1.6 var(--body); }
+  img { max-width: 100%; display: block; }
+  a { color: var(--accent); }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
+  h1, h2, h3 { font-family: var(--display); line-height: 1.05; text-wrap: balance; margin: 0; }
+  h2 { font-size: clamp(30px, 4.4vw, 46px); font-weight: 800; letter-spacing: -.02em; }
+  h3 { font-size: 21px; font-weight: 600; }
+  p { margin: 0; }
+  .lead { color: var(--muted); max-width: 60ch; font-size: 18px; }
+  .eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+  .re { color: var(--accent); }
+
+  .btn { display: inline-flex; align-items: center; gap: 10px; font: 600 16px/1 var(--body); text-decoration: none;
+         padding: 14px 20px; border-radius: 999px; border: 2px solid var(--ink); color: var(--ink); background: transparent;
+         transition: transform .15s, background .15s; cursor: pointer; }
+  .btn:hover { transform: translateY(-2px); }
+  .btn.primary { background: var(--ink); color: var(--paper); }
+  .btn small { font: 400 12px var(--mono); opacity: .7; }
+
+  /* Testata */
+  header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; background: color-mix(in srgb, var(--paper) 88%, transparent);
+               backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 11; background: var(--paper); }
+  header.top .wrap { display: flex; align-items: center; gap: 24px; height: 62px; }
+  .logo { font: 800 24px var(--display); letter-spacing: -.03em; text-decoration: none; color: var(--ink); }
+  nav { display: flex; gap: 20px; margin-left: auto; align-items: center; }
+  nav a { color: var(--muted); text-decoration: none; font-weight: 500; font-size: 15px; }
+  nav a:hover { color: var(--ink); }
+  #themeBtn { background: none; border: 1px solid var(--line); color: var(--ink); border-radius: 999px; width: 36px; height: 36px; cursor: pointer; font-size: 16px; }
+  @media (max-width: 760px) { nav a:not(.gh) { display: none; } }
+
+  /* Eroe */
+  .hero { padding-block: 72px 80px; display: grid; grid-template-columns: 1.15fr .85fr; gap: 56px; align-items: center; }
+  .hero > * { min-width: 0; }
+  .hero h1 { font-size: clamp(44px, 7.4vw, 90px); font-weight: 800; letter-spacing: -.035em; margin: 18px 0 22px; }
+  .hero h1 s { text-decoration-thickness: .09em; text-decoration-color: var(--stamp); color: var(--muted); }
+  .hero .cta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 30px; }
+  @media (max-width: 880px) { .hero { grid-template-columns: 1fr; padding-block: 44px 56px; gap: 40px; } }
+
+  .receipt { position: relative; background: var(--receipt); font: 400 14px/1.7 var(--mono); padding: 26px 26px 34px;
+             border: 1px solid var(--line); border-bottom: 0; transform: rotate(1.6deg); max-width: 400px; justify-self: center; width: 100%;
+             box-shadow: 0 18px 40px -22px rgba(0,0,0,.35); }
+  .receipt::after { content: ""; position: absolute; left: -1px; right: -1px; bottom: -12px; height: 12px;
+                    background: linear-gradient(-45deg, transparent 8px, var(--receipt) 0) 0 0 / 16px 12px,
+                                linear-gradient(45deg, transparent 8px, var(--receipt) 0) 0 0 / 16px 12px; }
+  .receipt .head { text-align: center; border-bottom: 1px dashed var(--line); padding-bottom: 12px; margin-bottom: 12px; }
+  .receipt .head b { font-weight: 500; letter-spacing: .08em; }
+  .receipt .row { display: flex; justify-content: space-between; gap: 12px; }
+  .receipt .row span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .receipt .old { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--stamp); }
+  .receipt .new { font-weight: 500; }
+  .receipt .sep { border-top: 1px dashed var(--line); margin: 12px 0; }
+  .receipt .total { font-weight: 500; font-size: 17px; }
+  .stamp { display: table; margin: 22px auto 0; transform: rotate(-7deg); border: 3px solid var(--stamp); color: var(--stamp);
+           font: 800 22px/1 var(--display); letter-spacing: .06em; padding: 8px 12px; border-radius: 6px; opacity: .88; mix-blend-mode: multiply; }
+  :root[data-theme="dark"] .stamp { mix-blend-mode: normal; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .stamp { mix-blend-mode: normal; } }
+
+  section { padding-block: 84px; }
+  section + section { border-top: 1px solid var(--line); }
+  .sec-head { display: grid; gap: 14px; margin-bottom: 44px; }
+
+  /* Come funziona: è una sequenza reale, quindi numerata */
+  .steps { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; counter-reset: s; }
+  .steps li { counter-increment: s; display: grid; gap: 10px; align-content: start; }
+  .steps li::before { content: counter(s); font: 800 54px/1 var(--display); color: var(--accent); }
+  .steps p { color: var(--muted); font-size: 16px; }
+  .steps .say { font: 400 14px/1.5 var(--mono); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px; }
+  @media (max-width: 880px) { .steps { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 520px) { .steps { grid-template-columns: 1fr; } }
+
+  /* Demo */
+  .demo { display: grid; grid-template-columns: 1.5fr 1fr; gap: 48px; align-items: center; }
+  .demo > * { min-width: 0; }
+  .shot { border-radius: 12px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 24px 60px -30px rgba(0,0,0,.5); }
+  .feat { list-style: none; padding: 0; margin: 22px 0 28px; display: grid; gap: 10px; }
+  .feat li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; font-size: 16px; }
+  .feat li::before { content: "✓"; color: var(--accent); font-weight: 700; }
+  .note { font-size: 14px; color: var(--muted); }
+  @media (max-width: 880px) { .demo { grid-template-columns: 1fr; } }
+
+  /* Catalogo */
+  .tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 26px; }
+  #q { flex: 1 1 260px; font: inherit; font-size: 16px; padding: 12px 16px; border-radius: 999px; border: 1px solid var(--line);
+       background: var(--surface); color: var(--ink); min-width: 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+  .chip { font: 500 14px var(--body); padding: 7px 13px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; }
+  .chip[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; display: grid; gap: 8px; align-content: start; }
+  .card .from { font: 400 13px var(--mono); color: var(--muted); }
+  .card .from s { text-decoration-color: var(--stamp); }
+  .card h3 { font-size: 19px; }
+  .card p { font-size: 14.5px; color: var(--muted); line-height: 1.5; }
+  .card .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .tag { font: 500 11.5px var(--mono); padding: 3px 8px; border-radius: 4px; background: var(--accent-soft); color: var(--ink); }
+  .tag.cat { background: transparent; border: 1px solid var(--line); color: var(--muted); }
+  #empty { color: var(--muted); padding: 24px 0; }
+  .count { font: 400 14px var(--mono); color: var(--muted); }
+
+  /* Regole */
+  .rules { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+  .rules div { display: grid; gap: 8px; align-content: start; }
+  .rules p { color: var(--muted); font-size: 16px; }
+  @media (max-width: 880px) { .rules { grid-template-columns: 1fr; } }
+
+  /* Installa */
+  .install { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .install > div { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 26px; display: grid; gap: 14px; align-content: start; min-width: 0; }
+  .install ol { margin: 0; padding-left: 20px; display: grid; gap: 8px; color: var(--muted); }
+  .install ol b { color: var(--ink); font-weight: 600; }
+  .code { display: flex; gap: 8px; align-items: stretch; }
+  .code pre { flex: 1; min-width: 0; margin: 0; overflow-x: auto; font: 400 14px/1.5 var(--mono); background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  .copy { font: 500 13px var(--body); border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 8px; padding: 0 12px; cursor: pointer; }
+  @media (max-width: 880px) { .install { grid-template-columns: 1fr; } }
+
+  footer { padding-block: 40px 56px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: space-between; }
+  footer p { max-width: 70ch; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="logo" href="#"><span class="re">RE</span>build</a>
+    <nav>
+      <a href="#come">Come funziona</a>
+      <a href="#demo">Demo</a>
+      <a href="#catalogo">Catalogo</a>
+      <a href="#installa">Installa</a>
+      <a class="gh" href="https://github.com/ascaniolocorotondo/rebuild">GitHub</a>
+      <button id="themeBtn" type="button" aria-label="Cambia tema chiaro/scuro">◐</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div>
+      <span class="eyebrow">Skill per Claude · gratuita e open source</span>
+      <h1>Non pagare <s>l'abbonamento</s>.<br>Ricostruisci il <span class="re">programma</span>.</h1>
+      <p class="lead">Dici a Claude quale programma a pagamento ti serve. REbuild sceglie le funzioni che usi davvero, costruisce la tua versione e la prova prima di consegnartela. Si apre con un doppio clic e funziona anche offline.</p>
+      <div class="cta">
+        <a class="btn primary" href="rebuild.skill" download>Scarica la skill <small>.skill · 16 KB</small></a>
+        <a class="btn" href="demo/ritocco.html">Prova Ritocco, il nostro Photoshop</a>
+      </div>
+    </div>
+    <div class="receipt" aria-label="Esempio di scontrino: abbonamenti sostituiti da programmi ricostruiti">
+      <div class="head"><b>ABBONAMENTI MENSILI</b><br>riepilogo del mese</div>
+      <div class="row"><span class="old">Fotoritocco pro</span><span class="old">annullato</span></div>
+      <div class="row"><span class="new">↳ Ritocco</span><span class="new">0,00 €</span></div>
+      <div class="row"><span class="old">Bacheca kanban</span><span class="old">annullato</span></div>
+      <div class="row"><span class="new">↳ la tua bacheca</span><span class="new">0,00 €</span></div>
+      <div class="row"><span class="old">Budget e spese</span><span class="old">annullato</span></div>
+      <div class="row"><span class="new">↳ il tuo budget</span><span class="new">0,00 €</span></div>
+      <div class="sep"></div>
+      <div class="row total"><span>TOTALE</span><span>0,00 €</span></div>
+      <div class="stamp">RICOSTRUITO</div>
+    </div>
+  </div>
+
+  <section id="come">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">Come funziona</span>
+        <h2>Dalla richiesta al programma in quattro passi</h2>
+      </div>
+      <ol class="steps">
+        <li><h3>Chiedi</h3><p>Scrivi in modo normale, senza termini tecnici.</p><div class="say">«Fammi una versione gratis di Trello per i compiti di casa»</div></li>
+        <li><h3>Sceglie le funzioni</h3><p>Di un programma enorme tiene le funzioni che usi davvero, prese da un catalogo di oltre 40 programmi. Se la richiesta è vaga, ti chiede cosa aggiungere o togliere.</p></li>
+        <li><h3>Costruisce e prova</h3><p>Prima una versione base completa, con Annulla, salvataggio automatico e le scorciatoie che conosci. Poi la apre e la prova.</p></li>
+        <li><h3>Usi il tuo programma</h3><p>Un file che si apre con doppio clic, oppure un'app Python per Windows. I tuoi dati restano sul tuo computer e si esportano in formati standard.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="demo">
+    <div class="wrap demo">
+      <figure class="shot" style="margin:0">
+        <img src="img/ritocco.jpg" width="800" height="500" alt="Ritocco aperto con un'immagine di montagne al tramonto, il pannello dei livelli e una selezione circolare attorno al sole">
+      </figure>
+      <div>
+        <span class="eyebrow">Costruito con REbuild</span>
+        <h2 style="margin-top:12px">Ritocco</h2>
+        <p class="lead" style="margin-top:14px">Il primo programma fatto con la skill: un editor di immagini in un solo file, nato dalla richiesta «fammi Photoshop».</p>
+        <ul class="feat">
+          <li>Livelli con opacità e 16 metodi di fusione</li>
+          <li>Pennello sensibile alla pressione, gomma, secchiello, contagocce, testo</li>
+          <li>Selezioni rettangolari, ellittiche e a lazo, con ritaglio</li>
+          <li>Luminosità, contrasto, colore e sfocatura con anteprima dal vivo</li>
+          <li>Esporta in PNG, JPG e WebP e salva il progetto con i livelli</li>
+          <li>Le scorciatoie di Photoshop: B, E, V, M, Ctrl+Z, Ctrl+J…</li>
+        </ul>
+        <a class="btn primary" href="demo/ritocco.html">Apri Ritocco</a>
+        <p class="note" style="margin-top:14px">Funziona nel browser, senza installare niente. Le immagini non escono dal tuo computer.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="catalogo">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">Il catalogo</span>
+        <h2>Cosa può ricostruire</h2>
+        <p class="lead">Per ogni programma la skill sa già quali funzioni costruire per prime e con quali strumenti. Se il tuo non c'è, parte dal più simile.</p>
+      </div>
+      <div class="tools">
+        <input id="q" type="search" placeholder="Cerca un programma, per esempio Excel o «musica»" aria-label="Cerca nel catalogo">
+        <span class="count" id="count"></span>
+        <div class="chips" id="chips" role="group" aria-label="Filtra per categoria"></div>
+      </div>
+      <div class="grid" id="grid"></div>
+      <p id="empty" hidden>Nessun programma trovato. Chiedilo comunque: REbuild parte dal programma più simile del catalogo.</p>
+    </div>
+  </section>
+
+  <section id="regole">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">Le regole</span>
+        <h2>Programmi nuovi, non copie</h2>
+      </div>
+      <div class="rules">
+        <div><h3>Funzioni sì, marchi no</h3><p>REbuild rifà quello che un programma sa fare e gli dà un nome suo. Niente loghi, icone o grafica degli originali.</p></div>
+        <div><h3>Niente crack</h3><p>Non sblocca licenze, prove gratuite o protezioni e non copia codice proprietario. Costruisce sempre da zero.</p></div>
+        <div><h3>Onesta sui limiti</h3><p>Se un programma è troppo grande, come il montaggio video professionale, costruisce la parte che ti serve. Poi ti indica il progetto open source che fa il resto.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="installa">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">Installa</span>
+        <h2>Pronta in un minuto</h2>
+      </div>
+      <div class="install">
+        <div>
+          <h3>App Claude e claude.ai</h3>
+          <ol>
+            <li><b>Scarica</b> il file <a href="rebuild.skill" download>rebuild.skill</a>.</li>
+            <li>In Claude apri <b>Impostazioni</b> e vai alla sezione delle <b>Skill</b> (sotto Funzionalità).</li>
+            <li><b>Carica</b> il file e attiva la skill.</li>
+            <li>In una nuova chat chiedi: <b>«Fammi una versione gratis di…»</b></li>
+          </ol>
+        </div>
+        <div>
+          <h3>Claude Code</h3>
+          <ol>
+            <li>Scarica <a href="rebuild.skill" download>rebuild.skill</a>: è un archivio ZIP.</li>
+            <li>Estrailo nella cartella delle skill:</li>
+          </ol>
+          <div class="code"><pre id="cmd">unzip rebuild.skill -d ~/.claude/skills/</pre><button class="copy" type="button" data-copy="cmd">Copia</button></div>
+          <p class="note">In alternativa copia la cartella <a href="https://github.com/ascaniolocorotondo/rebuild/tree/main/skill">skill</a> del repository in <code>~/.claude/skills/rebuild</code>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p><b>REbuild</b> · licenza MIT · <a href="https://github.com/ascaniolocorotondo/rebuild">codice su GitHub</a></p>
+    <p>I nomi dei programmi citati sono marchi dei rispettivi proprietari. REbuild non è affiliato a nessuno di loro: li nomina solo per indicare quale tipo di programma ricostruire.</p>
+  </div>
+</footer>
+
+<script>
+const CATALOG = [
+  ['Grafica e foto', 'Photoshop', 'Fotoritocco con livelli', 'Livelli, pennelli, selezioni, ritaglio, regolazioni colore, testo, esporta PNG/JPG.', 'Web app'],
+  ['Grafica e foto', 'Lightroom', 'Sviluppo e catalogo foto', 'Griglia di miniature, stelle, regolazioni non distruttive, preset, esportazione in blocco.', 'Web app'],
+  ['Grafica e foto', 'Canva', 'Grafiche per i social', 'Formati Instagram e YouTube, testi, forme, modelli, esporta PNG e PDF.', 'Web app'],
+  ['Grafica e foto', 'Remove.bg', 'Scontorno automatico', 'Rimuove lo sfondo, ritocco a pennello, PNG trasparente.', 'Web app · Python'],
+  ['Grafica e foto', 'TinyPNG', 'Compressore di immagini', 'Comprime e converte molte immagini, mostra il risparmio, scarica in ZIP.', 'Web app'],
+  ['Design', 'Illustrator', 'Disegno vettoriale', 'Penna e curve di Bézier, forme, unisci/sottrai, esporta SVG e PDF.', 'Web app'],
+  ['Design', 'Figma', 'Interfacce e prototipi', 'Frame, componenti, allineamento intelligente, prototipo cliccabile.', 'Web app'],
+  ['Design', 'Procreate', 'Disegno a mano libera', 'Pennelli sensibili alla pressione, tratto stabilizzato, livelli.', 'Web app'],
+  ['Ufficio', 'Word', 'Videoscrittura', 'Testo formattato, tabelle, immagini, pagina A4, apre e salva DOCX e PDF.', 'Web app'],
+  ['Ufficio', 'Excel', 'Foglio di calcolo', 'Formule come SOMMA e CERCA.VERT, più fogli, filtri, grafici, apre e salva XLSX.', 'Web app'],
+  ['Ufficio', 'PowerPoint', 'Presentazioni', 'Layout, temi, modalità presentazione, note, esporta PDF e PPTX.', 'Web app'],
+  ['Ufficio', 'Acrobat', 'Strumenti PDF', 'Unisci, dividi, ruota, firma, compila moduli, OCR.', 'Web app · Python'],
+  ['Ufficio', 'Grammarly', 'Correttore di testi', 'Sottolinea errori di ortografia e grammatica con suggerimenti.', 'Web app'],
+  ['Produttività', 'Notion', 'Pagine e database', 'Editor a blocchi con menu "/", pagine annidate, tabelle e kanban.', 'Web app'],
+  ['Produttività', 'Trello', 'Bacheca kanban', 'Colonne e schede trascinabili, checklist, scadenze, etichette.', 'Web app'],
+  ['Produttività', 'Todoist', 'Lista di cose da fare', 'Progetti, priorità, ricorrenze, inserimento rapido tipo «domani alle 15».', 'Web app'],
+  ['Produttività', 'Evernote', 'Appunti in Markdown', 'Cartelle, tag, ricerca, collegamenti tra note.', 'Web app'],
+  ['Produttività', 'Fantastical', 'Calendario', 'Viste mese, settimana e giorno, ricorrenze, importa ed esporta .ics.', 'Web app'],
+  ['Produttività', 'Toggl', 'Tracciamento del tempo', 'Timer per progetto, report settimanale, tariffa oraria, CSV.', 'Web app'],
+  ['Produttività', 'Forest', 'Pomodoro e abitudini', 'Timer pomodoro, serie di giorni, griglia delle abitudini.', 'Web app'],
+  ['Finanze', 'YNAB', 'Budget personale', 'Conti, categorie, budget mensile, importa l\'estratto conto in CSV, grafici.', 'Web app'],
+  ['Finanze', 'Fatture in Cloud', 'Fatture e preventivi', 'Clienti, righe con IVA, numerazione, PDF intestato, stato dei pagamenti.', 'Web app'],
+  ['Audio e musica', 'FL Studio', 'Studio musicale', 'Step sequencer, piano roll, sintetizzatore, mixer, esporta WAV.', 'Web app'],
+  ['Audio e musica', 'Audition', 'Editor audio', 'Forma d\'onda, taglia, dissolvenze, normalizza, registra, esporta MP3.', 'Web app'],
+  ['Audio e musica', 'Guitar Pro', 'Tablature e accordatore', 'Editor di tablature con riproduzione, accordatore, metronomo.', 'Web app'],
+  ['Audio e musica', 'Spotify', 'Lettore della tua musica', 'Libreria da cartella, playlist, coda, equalizzatore.', 'Web app'],
+  ['Video', 'Premiere', 'Montaggio video', 'Timeline, tagli, testi, musica, dissolvenze, esporta MP4.', 'Web app · Python'],
+  ['Video', 'OBS', 'Registratore dello schermo', 'Schermo o finestra, webcam sovrapposta, microfono.', 'Web app'],
+  ['Video', 'HandBrake', 'Convertitore video', 'Formati, compressione per WhatsApp e YouTube, estrai l\'audio.', 'Python'],
+  ['Sviluppo', 'Postman', 'Client per API', 'Richieste HTTP, raccolte, variabili d\'ambiente, cronologia.', 'Python'],
+  ['Sviluppo', 'TablePlus', 'Editor di database', 'Apre SQLite, modifica righe, editor SQL, esporta CSV.', 'Web app'],
+  ['Sviluppo', 'Visio', 'Diagrammi', 'Forme, connettori, testo → diagramma, esporta SVG.', 'Web app'],
+  ['Sistema e file', 'WinRAR', 'Archivi compressi', 'Crea ed estrae ZIP e 7z, con password.', 'Python'],
+  ['Sistema e file', 'CCleaner', 'Pulizia del disco', 'Mappa delle cartelle, duplicati, file grandi, sempre con conferma e Cestino.', 'Python'],
+  ['Sistema e file', 'Bulk Rename Utility', 'Rinomina in blocco', 'Anteprima, trova e sostituisci, numerazione, data delle foto.', 'Python'],
+  ['Sistema e file', '1Password', 'Gestore di password', 'Archivio cifrato, generatore, copia con cancellazione automatica.', 'Web app'],
+  ['Studio', 'Anki', 'Flashcard', 'Mazzi, ripetizione spaziata, quiz, importa da CSV.', 'Web app'],
+  ['Studio', 'Kahoot', 'Quiz per la classe', 'Domande a tempo, classifica a schermo intero.', 'Web app'],
+  ['Studio', 'Duolingo', 'Esercizi a livelli', 'Lezioni, ascolto, punti e serie di giorni.', 'Web app'],
+  ['3D e CAD', 'Tinkercad', 'Modellazione 3D semplice', 'Forme base, unione e sottrazione, misure in mm, esporta STL.', 'Web app'],
+  ['3D e CAD', 'AutoCAD', 'Disegno tecnico 2D', 'Linee, archi, aggancio ai punti, quote, livelli, esporta DXF.', 'Web app'],
+  ['Marketing', 'Mailchimp', 'Editor di newsletter', 'Email a blocchi, anteprima su telefono, contatti da CSV.', 'Web app'],
+  ['Marketing', 'Hootsuite', 'Piano dei post social', 'Calendario dei contenuti, bozze, anteprima per piattaforma.', 'Web app'],
+  ['Marketing', 'Typeform', 'Moduli e sondaggi', 'Domande di vari tipi, riepilogo con grafici, esporta CSV.', 'Web app']
+];
+
+const grid = document.getElementById('grid'), chips = document.getElementById('chips'), q = document.getElementById('q');
+const cats = ['Tutti', ...new Set(CATALOG.map(c => c[0]))];
+let cat = 'Tutti';
+const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+chips.innerHTML = cats.map(c => `<button class="chip" type="button" aria-pressed="${c === cat}">${esc(c)}</button>`).join('');
+chips.addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  cat = b.textContent;
+  chips.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', x === b));
+  draw();
+});
+q.addEventListener('input', draw);
+
+function draw() {
+  const term = norm(q.value.trim());
+  const rows = CATALOG.filter(([c, prog, what, feats]) =>
+    (cat === 'Tutti' || c === cat) && (!term || norm([c, prog, what, feats].join(' ')).includes(term)));
+  grid.innerHTML = rows.map(([c, prog, what, feats, stack]) => `
+    <article class="card">
+      <span class="from">invece di <s>${esc(prog)}</s></span>
+      <h3>${esc(what)}</h3>
+      <p>${esc(feats)}</p>
+      <div class="tags"><span class="tag">${esc(stack)}</span><span class="tag cat">${esc(c)}</span></div>
+    </article>`).join('');
+  document.getElementById('empty').hidden = rows.length > 0;
+  document.getElementById('count').textContent = `${rows.length} di ${CATALOG.length}`;
+}
+draw();
+
+document.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', async () => {
+  const text = document.getElementById(b.dataset.copy).textContent;
+  try { await navigator.clipboard.writeText(text); b.textContent = 'Copiato'; }
+  catch { const r = document.createRange(); r.selectNodeContents(document.getElementById(b.dataset.copy)); getSelection().removeAllRanges(); getSelection().addRange(r); b.textContent = 'Premi Ctrl+C'; }
+  setTimeout(() => b.textContent = 'Copia', 1800);
+}));
+
+const root = document.documentElement;
+try { const t = localStorage.getItem('rebuild:theme'); if (t) root.dataset.theme = t; } catch {}
+document.getElementById('themeBtn').addEventListener('click', () => {
+  const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  root.dataset.theme = dark ? 'light' : 'dark';
+  try { localStorage.setItem('rebuild:theme', root.dataset.theme); } catch {}
+});
+</script>
+</body>
+</html>
