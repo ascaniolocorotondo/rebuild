@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ascaniolocorotondo.github.io/rebuild/sitemap.xml
